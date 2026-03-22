@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Maven
+target/
+.m2/
+maven-status/
+generated-sources/
+generated-test-sources/
+
+# Node (if applicable)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build logs
+build.log
+build-output.txt
+startup-log.txt
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# File uploads (don't include in image)
+local-files/
+uploads/
+
+# Documentation
+HELP.md
+README.md
+docs/
+
+# IML files
+*.iml
