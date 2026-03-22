@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axiosInterceptor";
-import { useAuth } from "../context/useAuth"; // Updated to match your new import path
+import { useAuth } from "../context/useAuth"; 
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-// import { Building2 } from "lucide-react";
 import logo from "../assets/avenra-logo.png";
-import { Link } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,17 +15,16 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // A simple browser-safe JWT decoder
-const decodeJwt = (token) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(window.atob(base64));
-  } catch {
-    console.error("Failed to decode JWT.");
-    return null;
-  }
-};
+  const decodeJwt = (token) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(window.atob(base64));
+    } catch {
+      console.error("Failed to decode JWT.");
+      return null;
+    }
+  };
 
   const handleManualLogin = async (e) => {
     e.preventDefault();
@@ -38,9 +35,8 @@ const decodeJwt = (token) => {
       const response = await api.post("/auth/authenticate", { email, password });
       const { token } = response.data;
       
-      // --- NEW: Dynamic Organization Resolution ---
       const decodedPayload = decodeJwt(token);
-      const actualOrgId = decodedPayload?.orgId; // Matches the claim name from Java
+      const actualOrgId = decodedPayload?.orgId;
 
       if (!actualOrgId) {
         setError("Security Error: No workspace assigned to this account.");
@@ -48,10 +44,8 @@ const decodeJwt = (token) => {
         return;
       }
       
-      // Lock the REAL credentials into the vault
       login(token, actualOrgId);
       navigate("/dashboard");
-      // ------------------------------------------
 
     } catch {
       setError("Invalid email or password. Please try again.");
@@ -65,35 +59,25 @@ const decodeJwt = (token) => {
   };
 
   return (
-    // FULL SCREEN GRADIENT BACKGROUND
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-avenra-950">
-
-      {/* 1. The Glowing Ambient Mesh Layer */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-avenra-600/20 blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-avenra-400/10 blur-[100px] pointer-events-none"></div>
 
       <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-6 py-12 z-10">
-
-        {/* LEFT SIDE: Brand Identity (Floats over the gradient) */}
         <div className="flex flex-col items-center md:items-start text-center md:text-left mb-12 md:mb-0 max-w-lg">
           <div className="flex items-center space-x-3 text-white mb-8">
             <img src={logo} alt="Avenra" className="w-10 h-10 rounded shadow-sm" />
             <span className="text-3xl font-bold tracking-wide">AVENRA <span className="text-avenra-400">FLOW</span></span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight">
-            Built to Simplify <br />
-            <span className="text-avenra-400">
-              Complexity
-            </span>
+            Built to Simplify <br /><span className="text-avenra-400">Complexity</span>
           </h1>
           <p className="text-slate-300 text-lg md:text-xl font-light">
             The enterprise-grade invoice automation engine. Cognitive extraction and real-time analytics.
           </p>
         </div>
 
-        {/* RIGHT SIDE: The Premium Floating Card */}
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-8 sm:p-10 transform transition-all hover:shadow-[0_20px_40px_-15px_rgba(30,64,175,0.3)]">
-
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-8 sm:p-10">
           <div className="text-center md:text-left mb-8">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
             <p className="text-slate-500 mt-1 text-sm">Sign in to your Avenra workspace.</p>
@@ -120,14 +104,8 @@ const decodeJwt = (token) => {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-slate-700">Password</label>
-                import { Link } from "react-router-dom";
-
-                // Find your Forgot Password link and change it to this:
-                <Link 
-                  to="/forgot-password" 
-                  state={{ email: email }} // Passes the email they typed
-                  className="text-sm font-semibold text-avenra-600 hover:text-avenra-500"
-                >
+                {/* THIS LINK PASSES THE EMAIL STATE TO THE FORGOT PASSWORD PAGE */}
+                <Link to="/forgot-password" state={{ email: email }} className="text-xs font-semibold text-avenra-600 hover:text-avenra-500">
                   Forgot password?
                 </Link>
               </div>
@@ -170,7 +148,6 @@ const decodeJwt = (token) => {
             </svg>
             Sign in with Google
           </Button>
-
         </div>
       </div>
     </div>
