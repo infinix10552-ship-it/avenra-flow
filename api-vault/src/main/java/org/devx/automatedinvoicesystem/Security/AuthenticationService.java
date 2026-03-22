@@ -68,9 +68,15 @@ public class AuthenticationService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user = userRepo.save(user);
 
-        // 3. NEW: Create their personal Workspace (Organization)
+        // 3. Create their Workspace using the provided name, or fallback to default
         Organization org = new Organization();
-        org.setName(user.getFirstName() + "'s Personal Workspace");
+        String orgName = request.getOrganizationName();
+        
+        if (orgName == null || orgName.trim().isEmpty()) {
+            orgName = user.getFirstName() + "'s Personal Workspace";
+        }
+        
+        org.setName(orgName);
         org = organizationRepository.save(org);
 
         // 4. NEW: Link the user as the OWNER of this Workspace
