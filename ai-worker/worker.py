@@ -169,20 +169,27 @@ def process_invoice(ch, method, properties, body):
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 def start_worker():
-    print(f"[*] AI Worker Booting Up... Connecting to CloudAMQP")
-    params = pika.URLParameters(AMQP_URL)
-    connection = pika.BlockingConnection(params)
-    channel = connection.channel()
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-    channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=process_invoice, auto_ack=False)
+    import time
+    import traceback
     
-    try:
-        channel.start_consuming()
-    except Exception as e:
-        print(f"\n[*] Worker interrupted: {e}")
-        channel.stop_consuming()
-    connection.close()
+    while True: # Auto-reconnect loop to keep the AI worker alive forever
+        try:
+            print(f"[*] AI Worker Booting Up... Connecting to CloudAMQP")
+            params = pika.URLParameters(AMQP_URL)
+            connection = pika.BlockingConnection(params)
+            channel = connection.channel()
+            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(queue=QUEUE_NAME, on_message_callback=process_invoice, auto_ack=False)
+            
+            print("[✅] Successfully connected to RabbitMQ. Awaiting invoices...")
+            channel.start_consuming()
+            
+        except Exception as e:
+            print(f"\n[❌] FATAL RABBITMQ THREAD CRASH: {e}")
+            traceback.print_exc() # This prints the exact line that failed
+            print("[*] Attempting to reboot AI engine in 10 seconds...\n")
+            time.sleep(10)
 
 # 5. MULTI-THREADING IGNITION
 
