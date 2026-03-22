@@ -5,12 +5,15 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { ArrowLeft, MailCheck, ShieldAlert } from "lucide-react";
 import logo from "../assets/avenra-logo.png"; // Adjust extension if needed
+import { useLocation } from "react-router-dom";
 
 export default function ForgotPassword() {
-    const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [error, setError] = useState("");
+    const location = useLocation();
+    // Auto-fill with the passed email, or default to blank
+    const [email, setEmail] = useState(location.state?.email || "");
 
     const handleResetRequest = async (e) => {
         e.preventDefault();

@@ -120,7 +120,14 @@ const decodeJwt = (token) => {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-slate-700">Password</label>
-                <Link to="/forgot-password" className="text-xs font-semibold text-avenra-600 hover:text-avenra-500">
+                import { Link } from "react-router-dom";
+
+                // Find your Forgot Password link and change it to this:
+                <Link 
+                  to="/forgot-password" 
+                  state={{ email: email }} // Passes the email they typed
+                  className="text-sm font-semibold text-avenra-600 hover:text-avenra-500"
+                >
                   Forgot password?
                 </Link>
               </div>
