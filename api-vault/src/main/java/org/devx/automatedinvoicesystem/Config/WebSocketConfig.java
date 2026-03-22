@@ -16,9 +16,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Use the dynamic frontend URL from application.properties
+        // Normalize frontendUrl (no trailing slash)
+        String allowedOrigin = frontendUrl.endsWith("/") 
+                               ? frontendUrl.substring(0, frontendUrl.length() - 1) 
+                               : frontendUrl;
+
         registry.addEndpoint("/ws")
-                .setAllowedOrigins(frontendUrl, "http://localhost:5173")
+                .setAllowedOrigins(allowedOrigin, "http://localhost:5173", "http://localhost:3000")
                 .withSockJS();
     }
 

@@ -24,10 +24,16 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(org.springframework.web.servlet.config.annotation.CorsRegistry registry) {
+        // Normalize frontendUrl for CORS (no trailing slash)
+        String allowedOrigin = frontendUrl.endsWith("/") 
+                               ? frontendUrl.substring(0, frontendUrl.length() - 1) 
+                               : frontendUrl;
+
         registry.addMapping("/**")
-                .allowedOrigins(frontendUrl) // Only allow your specific frontend
+                .allowedOrigins(allowedOrigin, "http://localhost:5173", "http://localhost:3000") 
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*");
+                .allowedHeaders("*")
+                .allowCredentials(true);
     }
 
 }

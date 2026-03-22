@@ -26,8 +26,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final OrganizationMemberRepo orgMemberRepository;
     private final JwtService jwtService;
 
-//    //redirect here with the JWT attached.
-//    private final String FRONTEND_REDIRECT_URL = "http://localhost:5173/oauth2-redirect";
     @org.springframework.beans.factory.annotation.Value("${app.frontend.url}")
     private String frontendUrl;
     public OAuth2LoginSuccessHandler(UserRepo userRepository,
@@ -89,8 +87,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         String jwtToken = jwtService.generateToken(user, targetOrgId);
 
-//        String redirectUrl = FRONTEND_REDIRECT_URL + "?token=" + jwtToken;
-        String redirectUrl = frontendUrl + "/oauth2-redirect?token=" + jwtToken;
+        // Normalize the frontend URL to avoid double slashes
+        String baseFrontendUrl = frontendUrl.endsWith("/") 
+                                 ? frontendUrl.substring(0, frontendUrl.length() - 1) 
+                                 : frontendUrl;
+
+        String redirectUrl = baseFrontendUrl + "/oauth2-redirect?token=" + jwtToken;
         response.sendRedirect(redirectUrl);
     }
 }

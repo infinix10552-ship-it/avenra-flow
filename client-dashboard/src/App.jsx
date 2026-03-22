@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/useAuth";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import OAuth2RedirectHandler from "./pages/OAuth2RedirectHandler";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import UploadHub from "./pages/UploadHub";
@@ -29,6 +30,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/oauth2-redirect" element={<OAuth2RedirectHandler />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       

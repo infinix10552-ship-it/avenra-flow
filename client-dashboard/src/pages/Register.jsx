@@ -1,60 +1,45 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axiosInterceptor";
-import { useAuth } from "../context/useAuth"; // Updated to match your new import path
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-// import { Building2 } from "lucide-react";
 import logo from "../assets/avenra-logo.png";
-import { Link } from "react-router-dom";
 
-export default function Login() {
+export default function Register() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const { login } = useAuth();
   const navigate = useNavigate();
 
-  // A simple browser-safe JWT decoder
-const decodeJwt = (token) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(window.atob(base64));
-  } catch {
-    console.error("Failed to decode JWT.");
-    return null;
-  }
-};
-
-  const handleManualLogin = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setSuccessMessage("");
 
     try {
-      const response = await api.post("/auth/authenticate", { email, password });
-      const { token } = response.data;
+      await api.post("/auth/register", { 
+        firstName, 
+        lastName, 
+        email, 
+        password, 
+        organizationName 
+      });
       
-      // --- NEW: Dynamic Organization Resolution ---
-      const decodedPayload = decodeJwt(token);
-      const actualOrgId = decodedPayload?.orgId; // Matches the claim name from Java
+      setSuccessMessage("Registration successful! Redirecting to login...");
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
 
-      if (!actualOrgId) {
-        setError("Security Error: No workspace assigned to this account.");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Lock the REAL credentials into the vault
-      login(token, actualOrgId);
-      navigate("/dashboard");
-      // ------------------------------------------
-
-    } catch {
-      setError("Invalid email or password. Please try again.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -95,8 +80,8 @@ const decodeJwt = (token) => {
         <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-8 sm:p-10 transform transition-all hover:shadow-[0_20px_40px_-15px_rgba(30,64,175,0.3)]">
 
           <div className="text-center md:text-left mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
-            <p className="text-slate-500 mt-1 text-sm">Sign in to your Avenra workspace.</p>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Create an account</h2>
+            <p className="text-slate-500 mt-1 text-sm">Join Avenra and set up your workspace.</p>
           </div>
 
           {error && (
@@ -105,7 +90,47 @@ const decodeJwt = (token) => {
             </div>
           )}
 
-          <form onSubmit={handleManualLogin} className="space-y-5">
+          {successMessage && (
+            <div className="mb-6 p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg">
+              {successMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700">First Name</label>
+                <Input
+                  type="text"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700">Last Name</label>
+                <Input
+                  type="text"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">Organization Name</label>
+              <Input
+                type="text"
+                placeholder="Acme Corp"
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                required
+              />
+            </div>
+
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">Email address</label>
               <Input
@@ -118,12 +143,7 @@ const decodeJwt = (token) => {
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-slate-700">Password</label>
-                <Link to="/forgot-password" className="text-xs font-semibold text-avenra-600 hover:text-avenra-500">
-                  Forgot password?
-                </Link>
-              </div>
+              <label className="block text-sm font-medium text-slate-700">Password</label>
               <Input
                 type="password"
                 placeholder="••••••••"
@@ -134,13 +154,13 @@ const decodeJwt = (token) => {
             </div>
 
             <Button type="submit" className="w-full mt-2" isLoading={isLoading}>
-              Sign in to Workspace
+              Create Workspace
             </Button>
             
             <p className="text-center text-sm text-slate-600 mt-4">
-              Don&apos;t have an account?{" "}
-              <Link to="/register" className="font-semibold text-avenra-600 hover:text-avenra-500">
-                Sign up
+              Already have an account?{" "}
+              <Link to="/login" className="font-semibold text-avenra-600 hover:text-avenra-500">
+                Sign in
               </Link>
             </p>
           </form>
