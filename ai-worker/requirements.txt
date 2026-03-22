@@ -1,0 +1,13 @@
+# For connecting to RabbitMQ
+pika
+
+# For downloading the PDF from the URL Spring Boot sends us
+requests
+
+# For updating the PostgreSQL database directly
+psycopg2-binary
+
+# For the actual AI / OCR extraction
+pytesseract
+Pillow
+pdf2image

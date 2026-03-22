@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  /* Avenra Brand Palette */
+  --color-avenra-950: #060b14; /* Deepest shadow */
+  --color-avenra-900: #0c1527; /* Rich dark background */
+  --color-avenra-800: #152441; /* Dark surfaces */
+  --color-avenra-600: #254682; /* Muted brand */
+  --color-avenra-500: #305ba3; /* Primary Brand Blue */
+  --color-avenra-400: #4a7acb; /* Highlight Blue */
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* FinTech subtle shadows */
+  --shadow-glass: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-premium: 0 10px 25px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+@layer base {
+  :root {
+    --background: #f8fafc; /* slate-50 */
+    --foreground: #0f172a; /* slate-900 */
+  }
+
+  body {
+    @apply bg-[var(--background)] text-[var(--foreground)] antialiased selection:bg-avenra-500 selection:text-white;
+  }
+
+  /* Custom Scrollbar for data tables */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-300;
+  }
+}
