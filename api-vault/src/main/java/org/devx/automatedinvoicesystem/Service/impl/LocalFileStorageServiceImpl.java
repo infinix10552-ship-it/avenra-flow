@@ -9,51 +9,39 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Service
-@Profile("dev") // This implementation will only be active in the "dev" profile. In production, we can switch to a different implementation (e.g., S3FileStorageServiceImpl).)
+@Profile("dev")
 public class LocalFileStorageServiceImpl implements FileStorageService {
 
-    // Saves files to a folder named "uploads" in your project directory
-    private final Path storageDirectory = Paths.get("uploads");
+    private final String UPLOAD_DIR = "local-files/";
 
-    public LocalFileStorageServiceImpl() {
+    @Override
+    public String uploadFile(MultipartFile file) {
         try {
-            // Create the directory if it doesn't exist when the server starts
-            Files.createDirectories(storageDirectory);
+            return uploadFileBytes(file.getBytes(), file.getOriginalFilename());
         } catch (IOException e) {
-            throw new RuntimeException("Could not create upload directory!");
+            throw new RuntimeException("Failed to read local file", e);
         }
     }
 
     @Override
-    public String uploadFile(MultipartFile file) {
-        String extension = getFileExtension(file.getOriginalFilename());
-        String uniqueFileName = UUID.randomUUID().toString() + extension;
-
+    public String uploadFileBytes(byte[] fileBytes, String originalFilename) {
         try {
-            Path destination = storageDirectory.resolve(uniqueFileName);
-            // Copy the file to the local folder
-            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+            String fileExtension = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                    : ".pdf";
+            String uniqueFileName = UUID.randomUUID().toString() + fileExtension;
 
-            // Return a fake URL for local testing
+            Path path = Paths.get(UPLOAD_DIR + uniqueFileName);
+            Files.createDirectories(path.getParent());
+            Files.write(path, fileBytes);
+
             return "http://localhost:8081/local-files/" + uniqueFileName;
+
         } catch (IOException e) {
-            throw new RuntimeException("Failed to store file locally.", e);
+            throw new RuntimeException("Failed to store local bulk file bytes", e);
         }
-    }
-
-//    @Override
-//    public String uploadFileBytes(byte[] fileBytes, String name) {
-//        return "";
-//    }
-
-    private String getFileExtension(String fileName) {
-        if (fileName != null && fileName.contains(".")) {
-            return fileName.substring(fileName.lastIndexOf("."));
-        }
-        return "";
     }
 }
