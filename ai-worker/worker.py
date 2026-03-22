@@ -7,19 +7,32 @@ from PIL import Image, ImageEnhance
 import pdf2image
 import pytesseract
 from datetime import datetime
+import threading
+from flask import Flask
 
-#PRODUCTION CONFIGURATION (ENV VARS)
+# 1. THE DUMMY WEB SERVER (RENDER HACK)
 
-RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
-QUEUE_NAME = os.getenv('QUEUE_NAME', 'invoice_queue')
+app = Flask(__name__)
 
-TESSERACT_CMD = os.getenv('TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe')
+@app.route('/')
+def health_check():
+    return "Avenra AI Worker is alive and listening to CloudAMQP!", 200
+
+# 2. CLOUD CONFIGURATION & SECRETS
+# Pass the full CloudAMQP URL here (amqps://user:pass@host/vhost)
+
+AMQP_URL = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost:5672/')
+QUEUE_NAME = os.environ.get('QUEUE_NAME', 'invoice_queue')
+
+# Default to Linux 'tesseract' command, override if on Windows locally
+TESSERACT_CMD = os.environ.get('TESSERACT_CMD', 'tesseract')
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-# APIs
-JAVA_WEBHOOK_URL = os.getenv('JAVA_WEBHOOK_URL', "http://localhost:8081/api/v1/webhook/invoice-complete")
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', 'YOUR_GROQ_KEY_HERE') # Replace or set interminal
+JAVA_WEBHOOK_URL = os.environ.get('JAVA_WEBHOOK_URL', "http://localhost:8081/api/v1/webhook/invoice-complete")
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', 'YOUR_GROQ_KEY_HERE')
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+# 3. CORE PROCESSING FUNCTIONS
 
 def download_file(url, local_path):
     response = requests.get(url, stream=True)
@@ -50,7 +63,6 @@ def extract_text_from_file(file_path):
 
 def parse_invoice_data(raw_text):
     print("[*] Engaging Groq Cloud (llama-3.1-8b-instant) for Cognitive Extraction...")
-
     prompt = f"""
     You are an elite FinTech data extraction AI.
     Read the following OCR invoice text and extract the financial data.
@@ -65,15 +77,12 @@ def parse_invoice_data(raw_text):
     RAW OCR TEXT:
     {raw_text}
     """
-
     try:
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
-        
         payload = {
-            # CRITICAL: Must be exactly this string, all lowercase
             "model": "llama-3.1-8b-instant", 
             "messages": [
                 {"role": "system", "content": "You are a JSON-only data extraction engine. You only output valid JSON objects."},
@@ -85,12 +94,10 @@ def parse_invoice_data(raw_text):
 
         response = requests.post(GROQ_URL, headers=headers, json=payload)
         
-        # NEW: If Groq throws a 400, print exactly why it failed!
         if response.status_code != 200:
             print(f"\n[❌] GROQ REJECTED THE REQUEST: {response.text}\n")
             
         response.raise_for_status()
-
         ai_output = response.json()['choices'][0]['message']['content']
         structured_data = json.loads(ai_output)
 
@@ -115,6 +122,8 @@ def send_to_java(payload):
     response = requests.post(JAVA_WEBHOOK_URL, json=payload)
     response.raise_for_status()
     print(f"[✅] Java Acknowledged: {response.text}")
+
+# 4. RABBITMQ CONSUMER LOGIC
 
 def process_invoice(ch, method, properties, body):
     try:
@@ -148,7 +157,6 @@ def process_invoice(ch, method, properties, body):
             print("====================================================\n")
             
             send_to_java(webhook_payload)
-            
             ch.basic_ack(delivery_tag=method.delivery_tag)
             print("[*] Sent ACK to RabbitMQ. Ready for next job.")
             
@@ -158,13 +166,11 @@ def process_invoice(ch, method, properties, body):
 
     except Exception as e:
         print(f"[❌] AI Processing crash: {e}")
-        # Negative Acknowledgment so RabbitMQ knows it failed and can retry/dead-letter
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 def start_worker():
-    print(f"[*] AI Worker Booting Up... Listening on {RABBITMQ_HOST}")
-    # Adding a heartbeat so the cloud provider doesn't sever idle connections
-    params = pika.ConnectionParameters(host=RABBITMQ_HOST, heartbeat=600, blocked_connection_timeout=300)
+    print(f"[*] AI Worker Booting Up... Connecting to CloudAMQP")
+    params = pika.URLParameters(AMQP_URL)
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
     channel.queue_declare(queue=QUEUE_NAME, durable=True)
@@ -173,10 +179,18 @@ def start_worker():
     
     try:
         channel.start_consuming()
-    except KeyboardInterrupt:
-        print("\n[*] Shutting down worker gracefully...")
+    except Exception as e:
+        print(f"\n[*] Worker interrupted: {e}")
         channel.stop_consuming()
     connection.close()
 
+# 5. MULTI-THREADING IGNITION
+
 if __name__ == '__main__':
-    start_worker()
+    # Start the RabbitMQ consumer in a background thread
+    worker_thread = threading.Thread(target=start_worker, daemon=True)
+    worker_thread.start()
+    
+    # Start the Flask web server on the main thread
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)

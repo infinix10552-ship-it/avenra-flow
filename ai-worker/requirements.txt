@@ -11,3 +11,5 @@ psycopg2-binary
 pytesseract
 Pillow
 pdf2image
+
+Flask==3.0.0

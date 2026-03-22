@@ -1,0 +1,10 @@
+# Master Secrets Ignore
+.env
+*/.env
+ai-worker/.env
+api-vault/.env
+client-dashboard/.env
+
+# Mac/Windows OS files
+.DS_Store
+Thumbs.db
