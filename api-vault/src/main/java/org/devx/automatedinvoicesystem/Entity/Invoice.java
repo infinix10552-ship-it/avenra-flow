@@ -55,7 +55,7 @@ public class Invoice extends Base {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ProcessingStatus Status;
+    private ProcessingStatus status;
 
 
     public enum ProcessingStatus {
