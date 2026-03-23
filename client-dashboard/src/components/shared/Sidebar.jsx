@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { motion as Motion, AnimatePresence } from "framer-motion/react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, UploadCloud, FileText, Settings, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import logo from "../../assets/avenra-logo.png"; 

@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { motion as Motion } from "framer-motion/react";
+import { motion as Motion } from "framer-motion";
 import api from "../api/axiosInterceptor";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { UploadCloud, FileArchive, CheckCircle2, AlertCircle, Loader2, FileText } from "lucide-react";

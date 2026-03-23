@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion as Motion } from "framer-motion/react";
+import { motion as Motion } from "framer-motion";
 import api from "../api/axiosInterceptor";
 import { Card } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";

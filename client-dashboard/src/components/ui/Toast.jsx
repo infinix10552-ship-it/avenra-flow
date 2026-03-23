@@ -1,4 +1,4 @@
-import { motion as Motion, AnimatePresence } from "framer-motion/react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, X } from "lucide-react";
 
 export function Toast({ message, isVisible, onClose }) {

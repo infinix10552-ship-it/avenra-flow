@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion as Motion } from "framer-motion/react";
+import { motion as Motion } from "framer-motion";
 import api from "../api/axiosInterceptor";
 import { useAuth } from "../context/useAuth"; 
 import { Input } from "../components/ui/Input";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion as Motion, AnimatePresence } from "framer-motion/react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { Menu, Bell, Search, User } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 

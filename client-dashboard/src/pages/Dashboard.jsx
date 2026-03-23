@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion as Motion } from "framer-motion/react";
+import { motion as Motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axiosInterceptor";
 import { Toast } from "../components/ui/Toast";

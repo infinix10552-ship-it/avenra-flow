@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion as Motion, AnimatePresence } from "framer-motion/react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import api from "../../api/axiosInterceptor";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
