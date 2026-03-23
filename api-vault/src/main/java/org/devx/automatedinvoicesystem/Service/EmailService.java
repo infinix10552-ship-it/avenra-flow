@@ -30,8 +30,8 @@ public class EmailService {
         headers.set("api-key", apiKey.trim());
         // Build the payload
         Map<String, Object> sender = new HashMap<>();
-        sender.put("name", "Avenra Security");
-        sender.put("email", "security@avenra.com");
+        sender.put("name", "Avenra");
+        sender.put("email", "infinix10552@gmail.com");
 
         Map<String, Object> recipient = new HashMap<>();
         recipient.put("email", toEmail);
