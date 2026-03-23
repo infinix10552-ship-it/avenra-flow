@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers("/local-files/**").permitAll()
                         // Allow Python to talk to Java without a JWT
                         .requestMatchers("/api/v1/webhook/**").permitAll()
+                        // Health checks should be public so load balancers can ping them without needing a token
+                        .requestMatchers("/health").permitAll()
                         // Any request to the invoices API MUST be authenticated
                         .requestMatchers("/api/v1/invoices/**").authenticated()
                         // Catch-all: Anything else must be authenticated
