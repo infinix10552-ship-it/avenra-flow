@@ -26,8 +26,8 @@ public class EmailService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("api-key", apiKey);
-
+        // .trim() safely removes any hidden newlines or spaces from the copied key
+        headers.set("api-key", apiKey.trim());
         // Build the payload
         Map<String, Object> sender = new HashMap<>();
         sender.put("name", "Avenra Security");
