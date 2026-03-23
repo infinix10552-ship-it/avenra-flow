@@ -34,9 +34,7 @@ export default function Register() {
       });
       
       setSuccessMessage("Registration successful! Redirecting to login...");
-      setTimeout(() => {
-        navigate("/login");
-      }, 2000);
+      setTimeout(() => navigate("/login"), 2000);
 
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
@@ -50,118 +48,71 @@ export default function Register() {
   };
 
   return (
-    // FULL SCREEN GRADIENT BACKGROUND
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-avenra-950">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-950 via-avenra-950 to-slate-900">
 
-      {/* 1. The Glowing Ambient Mesh Layer */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-avenra-600/20 blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-avenra-400/10 blur-[100px] pointer-events-none"></div>
+      {/* Pattern and Orbs */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNykiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none"></div>
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-avenra-600/30 blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '7s' }}></div>
+      <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-avenra-400/20 blur-[100px] pointer-events-none"></div>
 
-      <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-6 py-12 z-10">
+      <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-4 sm:px-6 py-8 sm:py-12 z-10 relative">
 
-        {/* LEFT SIDE: Brand Identity (Floats over the gradient) */}
-        <div className="flex flex-col items-center md:items-start text-center md:text-left mb-12 md:mb-0 max-w-lg">
-          <div className="flex items-center space-x-3 text-white mb-8">
+        <div className="flex flex-col items-center md:items-start text-center md:text-left mb-8 md:mb-0 max-w-lg animate-in fade-in slide-in-from-left-8 duration-700">
+          <div className="flex items-center space-x-3 text-white mb-6 md:mb-8">
             <img src={logo} alt="Avenra" className="w-10 h-10 rounded shadow-sm" />
             <span className="text-3xl font-bold tracking-wide">AVENRA <span className="text-avenra-400">FLOW</span></span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight">
-            Built to Simplify <br />
-            <span className="text-avenra-400">
-              Complexity
-            </span>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4 md:mb-6 tracking-tight">
+            Built to Simplify <br /><span className="text-avenra-400">Complexity</span>
           </h1>
-          <p className="text-slate-300 text-lg md:text-xl font-light">
+          <p className="text-slate-300 text-base md:text-xl font-light px-4 md:px-0">
             The enterprise-grade invoice automation engine. Cognitive extraction and real-time analytics.
           </p>
         </div>
 
-        {/* RIGHT SIDE: The Premium Floating Card */}
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-8 sm:p-10 transform transition-all hover:shadow-[0_20px_40px_-15px_rgba(30,64,175,0.3)]">
+        {/* Glassmorphism Card */}
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 p-6 sm:p-10 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(30,64,175,0.3)] animate-in fade-in zoom-in-95 duration-500">
 
           <div className="text-center md:text-left mb-8">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Create an account</h2>
             <p className="text-slate-500 mt-1 text-sm">Join Avenra and set up your workspace.</p>
           </div>
 
-          {error && (
-            <div className="mb-6 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-6 p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg">
-              {successMessage}
-            </div>
-          )}
+          {error && <div className="mb-6 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg">{error}</div>}
+          {successMessage && <div className="mb-6 p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg">{successMessage}</div>}
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700">First Name</label>
-                <Input
-                  type="text"
-                  placeholder="John"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                />
+                <Input type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
               </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700">Last Name</label>
-                <Input
-                  type="text"
-                  placeholder="Doe"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                />
+                <Input type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
               </div>
             </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">Organization Name</label>
-              <Input
-                type="text"
-                placeholder="Acme Corp"
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                required
-              />
+              <Input type="text" placeholder="Acme Corp" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} required />
             </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">Email address</label>
-              <Input
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">Password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
 
-            <Button type="submit" className="w-full mt-2" isLoading={isLoading}>
-              Create Workspace
-            </Button>
+            <Button type="submit" className="w-full mt-2" isLoading={isLoading}>Create Workspace</Button>
             
             <p className="text-center text-sm text-slate-600 mt-4">
               Already have an account?{" "}
-              <Link to="/login" className="font-semibold text-avenra-600 hover:text-avenra-500">
-                Sign in
-              </Link>
+              <Link to="/login" className="font-semibold text-avenra-600 hover:text-avenra-500 transition-colors">Sign in</Link>
             </p>
           </form>
 

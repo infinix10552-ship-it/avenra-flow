@@ -59,25 +59,31 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-avenra-950">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-avenra-600/20 blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-avenra-400/10 blur-[100px] pointer-events-none"></div>
+    <div className="min-h-[100dvh] w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-950 via-avenra-950 to-slate-900">
+      
+      {/* 1. Subtle Dot Pattern Overlay */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNykiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none"></div>
 
-      <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-6 py-12 z-10">
-        <div className="flex flex-col items-center md:items-start text-center md:text-left mb-12 md:mb-0 max-w-lg">
-          <div className="flex items-center space-x-3 text-white mb-8">
+      {/* 2. Enhanced Glowing Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-avenra-600/30 blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '6s' }}></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/20 blur-[120px] pointer-events-none"></div>
+
+      <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-4 sm:px-6 py-8 sm:py-12 z-10 relative">
+        <div className="flex flex-col items-center md:items-start text-center md:text-left mb-8 md:mb-0 max-w-lg animate-in fade-in slide-in-from-left-8 duration-700">
+          <div className="flex items-center space-x-3 text-white mb-6 md:mb-8">
             <img src={logo} alt="Avenra" className="w-10 h-10 rounded shadow-sm" />
             <span className="text-3xl font-bold tracking-wide">AVENRA <span className="text-avenra-400">FLOW</span></span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4 md:mb-6 tracking-tight">
             Built to Simplify <br /><span className="text-avenra-400">Complexity</span>
           </h1>
-          <p className="text-slate-300 text-lg md:text-xl font-light">
+          <p className="text-slate-300 text-base md:text-xl font-light px-4 md:px-0">
             The enterprise-grade invoice automation engine. Cognitive extraction and real-time analytics.
           </p>
         </div>
 
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-8 sm:p-10">
+        {/* Glassmorphism Card */}
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 p-6 sm:p-10 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(30,64,175,0.3)] animate-in fade-in zoom-in-95 duration-500">
           <div className="text-center md:text-left mb-8">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
             <p className="text-slate-500 mt-1 text-sm">Sign in to your Avenra workspace.</p>
@@ -104,8 +110,7 @@ export default function Login() {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-slate-700">Password</label>
-                {/* THIS LINK PASSES THE EMAIL STATE TO THE FORGOT PASSWORD PAGE */}
-                <Link to="/forgot-password" state={{ email: email }} className="text-xs font-semibold text-avenra-600 hover:text-avenra-500">
+                <Link to="/forgot-password" state={{ email: email }} className="text-xs font-semibold text-avenra-600 hover:text-avenra-500 transition-colors">
                   Forgot password?
                 </Link>
               </div>
@@ -124,7 +129,7 @@ export default function Login() {
             
             <p className="text-center text-sm text-slate-600 mt-4">
               Don&apos;t have an account?{" "}
-              <Link to="/register" className="font-semibold text-avenra-600 hover:text-avenra-500">
+              <Link to="/register" className="font-semibold text-avenra-600 hover:text-avenra-500 transition-colors">
                 Sign up
               </Link>
             </p>

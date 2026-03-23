@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
 @theme {
   /* Avenra Brand Palette */
   --color-avenra-950: #060b14; /* Deepest shadow */
