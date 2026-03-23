@@ -10,6 +10,7 @@ import InvoiceDetails from "./pages/InvoiceDetails";
 import Settings from "./pages/Settings";
 import AllInvoices from "./pages/AllInvoices";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // The Route Protector
 const ProtectedRoute = ({ children }) => {
@@ -31,6 +32,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/oauth2-redirect" element={<OAuth2RedirectHandler />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       
