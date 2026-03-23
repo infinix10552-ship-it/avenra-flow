@@ -15,7 +15,7 @@ import java.util.Map;
 public class EmailService {
 
     // Pulls the new API key from Render Environment Variables
-    @Value("${BREVO_API_KEY}")
+    @Value("${brevo.api.key}")
     private String apiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
