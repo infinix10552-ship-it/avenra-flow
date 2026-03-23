@@ -172,7 +172,7 @@ def start_worker():
     import time
     import traceback
     
-    while True: # Auto-reconnect loop to keep the AI worker alive forever
+    while True: # Auto-reconnect loop
         try:
             print(f"[*] AI Worker Booting Up... Connecting to CloudAMQP")
             params = pika.URLParameters(AMQP_URL)
@@ -186,8 +186,9 @@ def start_worker():
             channel.start_consuming()
             
         except Exception as e:
+            # THIS IS THE X-RAY. IT WILL FINALLY TELL US WHY IT IS FAILING.
             print(f"\n[❌] FATAL RABBITMQ THREAD CRASH: {e}")
-            traceback.print_exc() # This prints the exact line that failed
+            traceback.print_exc() 
             print("[*] Attempting to reboot AI engine in 10 seconds...\n")
             time.sleep(10)
 
