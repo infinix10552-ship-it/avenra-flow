@@ -174,7 +174,9 @@ def start_worker():
     
     while True: # Auto-reconnect loop
         try:
-            print(f"[*] AI Worker Booting Up... Connecting to CloudAMQP")
+            # flush=True forces the text to bypass the Docker silencer instantly
+            print("[*] AI Worker Booting Up... Connecting to CloudAMQP", flush=True)
+            
             params = pika.URLParameters(AMQP_URL)
             connection = pika.BlockingConnection(params)
             channel = connection.channel()
@@ -182,16 +184,14 @@ def start_worker():
             channel.basic_qos(prefetch_count=1)
             channel.basic_consume(queue=QUEUE_NAME, on_message_callback=process_invoice, auto_ack=False)
             
-            print("[✅] Successfully connected to RabbitMQ. Awaiting invoices...")
+            print("[✅] Successfully connected to RabbitMQ. Awaiting invoices...", flush=True)
             channel.start_consuming()
             
         except Exception as e:
-            # THIS IS THE X-RAY. IT WILL FINALLY TELL US WHY IT IS FAILING.
-            print(f"\n[❌] FATAL RABBITMQ THREAD CRASH: {e}")
+            print(f"\n[❌] FATAL RABBITMQ THREAD CRASH: {e}", flush=True)
             traceback.print_exc() 
-            print("[*] Attempting to reboot AI engine in 10 seconds...\n")
+            print("[*] Attempting to reboot AI engine in 10 seconds...\n", flush=True)
             time.sleep(10)
-
 # 5. MULTI-THREADING IGNITION
 
 if __name__ == '__main__':
