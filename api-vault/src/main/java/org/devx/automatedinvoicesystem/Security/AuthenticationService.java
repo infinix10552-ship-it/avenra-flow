@@ -130,6 +130,9 @@ public class AuthenticationService {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("No account found with that email."));
 
+        // (This prevents the unique constraint crash)
+        tokenRepository.deleteByUser(user);
+
         String token = java.util.UUID.randomUUID().toString();
 
         PasswordResetToken resetToken = new PasswordResetToken(token, user);
