@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion as Motion, AnimatePresence } from "framer-motion/react";
 import api from "../../api/axiosInterceptor";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -9,9 +10,6 @@ export default function WhatsAppModal({ isOpen, onClose, invoice }) {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState({ type: "idle", message: "" });
 
-  // If the modal is closed, don't render it
-  if (!isOpen || !invoice) return null;
-
   const handleSend = async (e) => {
     e.preventDefault();
     if (!phoneNumber) return;
@@ -19,11 +17,9 @@ export default function WhatsAppModal({ isOpen, onClose, invoice }) {
     setIsLoading(true);
     setStatus({ type: "idle", message: "" });
 
-    // Ensure the phone number has a country code (default to India if none provided for testing)
     const formattedNumber = phoneNumber.startsWith("+") ? phoneNumber : `+91${phoneNumber}`;
 
     try {
-      // Hit the Spring Boot WhatsApp Controller
       await api.post("/whatsapp/send", {
         invoiceId: invoice.id,
         targetPhoneNumber: formattedNumber,
@@ -31,11 +27,8 @@ export default function WhatsAppModal({ isOpen, onClose, invoice }) {
 
       setStatus({ type: "success", message: "Invoice securely dispatched via WhatsApp." });
       
-      // Auto-close after a few seconds so the user can keep working
       setTimeout(() => {
-        onClose();
-        setStatus({ type: "idle", message: "" });
-        setPhoneNumber("");
+        handleClose();
       }, 3000);
 
     } catch (error) {
@@ -55,75 +48,119 @@ export default function WhatsAppModal({ isOpen, onClose, invoice }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* The Blurred Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-        onClick={handleClose}
-      ></div>
+    <AnimatePresence>
+      {isOpen && invoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* The Blurred Backdrop */}
+          <Motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity"
+            onClick={handleClose}
+          />
 
-      {/* The Premium Glassmorphic Card */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Header */}
-        <div className="bg-emerald-50 px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-emerald-700">
-            <MessageCircle className="w-5 h-5" />
-            <h3 className="font-semibold text-lg">Share via WhatsApp</h3>
-          </div>
-          <button onClick={handleClose} className="text-emerald-600 hover:text-emerald-800 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
-            You are sharing the invoice for <span className="font-semibold text-slate-900">{invoice.vendorName || invoice.originalFileName}</span> 
-            <br/>Amount: <span className="font-semibold text-slate-900">₹{invoice.totalAmount || "0.00"}</span>
-          </div>
-
-          <form onSubmit={handleSend} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Recipient Phone Number
-              </label>
-              <Input
-                type="tel"
-                placeholder="+91 98765 43210"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                required
-                className="w-full"
-              />
-              <p className="text-xs text-slate-500 mt-1">Include country code (e.g., +1 or +91).</p>
-            </div>
-
-            {/* Status Messages */}
-            {status.type === "error" && (
-              <p className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100">{status.message}</p>
-            )}
-            {status.type === "success" && (
-              <p className="text-sm text-emerald-600 bg-emerald-50 p-2 rounded border border-emerald-100 flex items-center">
-                <CheckCircle2 className="w-4 h-4 mr-2" /> {status.message}
-              </p>
-            )}
-
-            <div className="pt-2 flex justify-end space-x-3">
-              <Button type="button" variant="ghost" onClick={handleClose} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isLoading || status.type === "success"}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          {/* The Premium Glassmorphic Card */}
+          <Motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative bg-white/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden z-10 border border-white/20"
+          >
+            
+            {/* Header */}
+            <div className="bg-emerald-50/80 backdrop-blur-sm px-6 py-5 border-b border-emerald-100 flex items-center justify-between">
+              <div className="flex items-center space-x-3 text-emerald-700">
+                <div className="p-2 bg-white rounded-xl shadow-sm border border-emerald-100/50">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-lg tracking-tight">Vault Share</h3>
+              </div>
+              <button 
+                onClick={handleClose} 
+                className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100/50 rounded-lg transition-colors"
+                title="Close"
               >
-                {isLoading ? "Transmitting..." : <><Send className="w-4 h-4 mr-2" /> Send Secure Link</>}
-              </Button>
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          </form>
+
+            {/* Content */}
+            <div className="p-8">
+              <Motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-8 p-4 bg-slate-50/80 rounded-2xl border border-slate-200/60 shadow-inner text-sm text-slate-600 space-y-2"
+              >
+                <div className="flex justify-between">
+                  <span className="font-medium">Vendor:</span>
+                  <span className="font-bold text-slate-900">{invoice.vendorName || "Unidentified"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Total Amount:</span>
+                  <span className="font-bold text-slate-900">₹{invoice.totalAmount?.toLocaleString() || "0.00"}</span>
+                </div>
+              </Motion.div>
+
+              <form onSubmit={handleSend} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-slate-700 ml-1">
+                    Recipient Phone
+                  </label>
+                  <Input
+                    type="tel"
+                    placeholder="+91 98765 43210"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    required
+                    className="w-full bg-white/50 focus:bg-white text-lg font-medium p-4 h-12 rounded-xl"
+                  />
+                  <p className="text-xs text-slate-500 ml-1">E.164 format (e.g., +919876543210)</p>
+                </div>
+
+                {/* Status Messages */}
+                <AnimatePresence mode="wait">
+                  {status.type !== "idle" && (
+                    <Motion.div 
+                      key={status.type}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={`text-sm p-3 rounded-xl border transition-all ${
+                        status.type === "error" ? "text-red-600 bg-red-50 border-red-100" : "text-emerald-600 bg-emerald-50 border-emerald-100"
+                      } flex items-center`}
+                    >
+                      {status.type === "success" && <CheckCircle2 className="w-4 h-4 mr-2 shrink-0" />}
+                      {status.message}
+                    </Motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="pt-2 flex flex-col space-y-3">
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading || status.type === "success"}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white h-12 rounded-xl shadow-[0_10px_20px_-10px_rgba(16,185,129,0.5)] font-bold text-base transition-all active:scale-95"
+                  >
+                    {isLoading ? "Transmitting..." : <div className="flex items-center justify-center"><Send className="w-4 h-4 mr-2" /> Dispatch Secure Link</div>}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    onClick={handleClose} 
+                    disabled={isLoading}
+                    className="w-full h-12 text-slate-500 font-semibold rounded-xl hover:bg-slate-100"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </Motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

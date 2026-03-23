@@ -1,10 +1,67 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { motion as Motion } from "framer-motion/react";
 import api from "../api/axiosInterceptor";
 import { useAuth } from "../context/useAuth"; 
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import logo from "../assets/avenra-logo.png";
+
+const StripeBackground = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none bg-[#060b14]">
+    {/* Subtle Grid Overlay */}
+    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNCkiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,white,transparent)]"></div>
+
+    {/* Deep Glowing Orbs */}
+    <Motion.div 
+      animate={{ scale: [1, 1.1, 1], opacity: [0.15, 0.25, 0.15] }} 
+      transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-600/30 blur-[120px] mix-blend-screen"
+    />
+    <Motion.div 
+      animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }} 
+      transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-600/20 blur-[120px] mix-blend-screen"
+    />
+
+    {/* Animated Ribbon / Wave */}
+    <div className="absolute inset-0 flex items-center justify-center opacity-60">
+      <svg className="w-[150%] min-w-[1000px] h-[150%] max-w-none" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ribbon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#305ba3" stopOpacity="0" />
+            <stop offset="20%" stopColor="#4a7acb" stopOpacity="0.6" />
+            <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.8" />
+            <stop offset="80%" stopColor="#254682" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#060b14" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <g stroke="url(#ribbon-grad)" fill="none" strokeWidth="1.5">
+          {[...Array(6)].map((_, i) => (
+            <Motion.path
+              key={i}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ 
+                pathLength: 1, 
+                opacity: 1 - (i * 0.15),
+                d: [
+                  `M-200,${400 + i * 30} C100,${500 - i * 20} 500,${300 + i * 40} 1200,${500 + i * 20}`,
+                  `M-200,${420 + i * 30} C150,${480 - i * 20} 450,${320 + i * 40} 1200,${480 + i * 20}`,
+                  `M-200,${400 + i * 30} C100,${500 - i * 20} 500,${300 + i * 40} 1200,${500 + i * 20}`
+                ]
+              }}
+              transition={{
+                pathLength: { duration: 2, ease: "easeOut", delay: i * 0.2 },
+                opacity: { duration: 1, delay: i * 0.2 },
+                d: { duration: 12 + i * 2, repeat: Infinity, ease: "easeInOut" }
+              }}
+            />
+          ))}
+        </g>
+      </svg>
+    </div>
+  </div>
+);
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -59,40 +116,47 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-950 via-avenra-950 to-slate-900">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center relative bg-[#060b14]">
       
-      {/* 1. Subtle Dot Pattern Overlay */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNykiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none"></div>
+      <StripeBackground />
 
-      {/* 2. Enhanced Glowing Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-avenra-600/30 blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '6s' }}></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/20 blur-[120px] pointer-events-none"></div>
-
-      <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-4 sm:px-6 py-8 sm:py-12 z-10 relative">
-        <div className="flex flex-col items-center md:items-start text-center md:text-left mb-8 md:mb-0 max-w-lg animate-in fade-in slide-in-from-left-8 duration-700">
-          <div className="flex items-center space-x-3 text-white mb-6 md:mb-8">
+      <div className="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center md:justify-between px-4 sm:px-8 py-12 z-10 relative">
+        
+        {/* Left Side Brand Identity */}
+        <Motion.div 
+          initial={{ opacity: 0, x: -30 }} 
+          animate={{ opacity: 1, x: 0 }} 
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="flex flex-col items-center md:items-start text-center md:text-left mb-12 md:mb-0 max-w-lg"
+        >
+          <div className="flex items-center space-x-3 text-white mb-8">
             <img src={logo} alt="Avenra" className="w-10 h-10 rounded shadow-sm" />
             <span className="text-3xl font-bold tracking-wide">AVENRA <span className="text-avenra-400">FLOW</span></span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4 md:mb-6 tracking-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight">
             Built to Simplify <br /><span className="text-avenra-400">Complexity</span>
           </h1>
-          <p className="text-slate-300 text-base md:text-xl font-light px-4 md:px-0">
+          <p className="text-slate-300 text-lg md:text-xl font-light">
             The enterprise-grade invoice automation engine. Cognitive extraction and real-time analytics.
           </p>
-        </div>
+        </Motion.div>
 
-        {/* Glassmorphism Card */}
-        <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 p-6 sm:p-10 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(30,64,175,0.3)] animate-in fade-in zoom-in-95 duration-500">
+        {/* Right Side Form Card - Glassmorphism applied */}
+        <Motion.div 
+          initial={{ opacity: 0, y: 30 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+          className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 p-6 sm:p-10"
+        >
           <div className="text-center md:text-left mb-8">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
             <p className="text-slate-500 mt-1 text-sm">Sign in to your Avenra workspace.</p>
           </div>
 
           {error && (
-            <div className="mb-6 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg">
+            <Motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg">
               {error}
-            </div>
+            </Motion.div>
           )}
 
           <form onSubmit={handleManualLogin} className="space-y-5">
@@ -104,6 +168,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-white/50 focus:bg-white transition-colors"
               />
             </div>
 
@@ -120,6 +185,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-white/50 focus:bg-white transition-colors"
               />
             </div>
 
@@ -144,7 +210,7 @@ export default function Login() {
             </div>
           </div>
 
-          <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+          <Button variant="outline" className="w-full bg-white/50 hover:bg-white" onClick={handleGoogleLogin}>
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -153,7 +219,7 @@ export default function Login() {
             </svg>
             Sign in with Google
           </Button>
-        </div>
+        </Motion.div>
       </div>
     </div>
   );
