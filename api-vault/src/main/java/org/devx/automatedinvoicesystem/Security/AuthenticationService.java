@@ -4,21 +4,17 @@ import jakarta.transaction.Transactional;
 import org.devx.automatedinvoicesystem.DTO.AuthenticationRequest;
 import org.devx.automatedinvoicesystem.DTO.AuthenticationResponse;
 import org.devx.automatedinvoicesystem.DTO.RegisterRequest;
-import org.devx.automatedinvoicesystem.Entity.Organization;
-import org.devx.automatedinvoicesystem.Entity.OrganizationMember;
-import org.devx.automatedinvoicesystem.Entity.PasswordResetToken;
-import org.devx.automatedinvoicesystem.Entity.User;
-import org.devx.automatedinvoicesystem.Repository.OrganizationMemberRepo;
-import org.devx.automatedinvoicesystem.Repository.OrganizationRepo;
-import org.devx.automatedinvoicesystem.Repository.PasswordResetTokenRepo;
-import org.devx.automatedinvoicesystem.Repository.UserRepo;
+import org.devx.automatedinvoicesystem.Entity.*;
+import org.devx.automatedinvoicesystem.Repository.*;
 import org.devx.automatedinvoicesystem.Service.EmailService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AuthenticationService {
@@ -31,18 +27,12 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final PasswordResetTokenRepo tokenRepository;
     private final EmailService emailService;
+    private final OrganizationInviteRepo inviteRepo;
+
     @org.springframework.beans.factory.annotation.Value("${app.frontend.url}")
     private String frontendUrl;
 
-    // --- NEW: Injected Organization Repositories ---
-    public AuthenticationService(UserRepo userRepo,
-                                 OrganizationRepo organizationRepository,
-                                 OrganizationMemberRepo orgMemberRepository,
-                                 PasswordEncoder passwordEncoder,
-                                 JwtService jwtService,
-                                 AuthenticationManager authenticationManager,
-                                 PasswordResetTokenRepo tokenRepository,
-                                 EmailService emailService) {
+    public AuthenticationService(UserRepo userRepo, OrganizationRepo organizationRepository, OrganizationMemberRepo orgMemberRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager, PasswordResetTokenRepo tokenRepository, EmailService emailService, OrganizationInviteRepo inviteRepo) {
         this.userRepo = userRepo;
         this.organizationRepository = organizationRepository;
         this.orgMemberRepository = orgMemberRepository;
@@ -51,16 +41,15 @@ public class AuthenticationService {
         this.authenticationManager = authenticationManager;
         this.tokenRepository = tokenRepository;
         this.emailService = emailService;
+        this.inviteRepo = inviteRepo;
     }
 
-    @Transactional // Ensures User, Org, and Member are all saved together or rollback
+    @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
-        // 1. Safety Check: Does the email already exist?
         if (userRepo.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already in use");
         }
 
-        // 2. Build the new User entity
         User user = new User();
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
@@ -68,98 +57,78 @@ public class AuthenticationService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user = userRepo.save(user);
 
-        // 3. Create their Workspace using the provided name, or fallback to default
-        Organization org = new Organization();
-        String orgName = request.getOrganizationName();
-        
-        if (orgName == null || orgName.trim().isEmpty()) {
-            orgName = user.getFirstName() + "'s Personal Workspace";
-        }
-        
-        org.setName(orgName);
-        org = organizationRepository.save(org);
+        // --- PRE-AUTH INVITATION INTERCEPTOR ---
+        Optional<OrganizationInvite> pendingInvite = inviteRepo.findByEmail(request.getEmail());
+        Organization targetOrg;
+        OrganizationMember.MemberRole userRole;
 
-        // 4. NEW: Link the user as the OWNER of this Workspace
+        if (pendingInvite.isPresent() && pendingInvite.get().getExpiresAt().isAfter(LocalDateTime.now())) {
+            targetOrg = pendingInvite.get().getOrganization();
+            try {
+                userRole = OrganizationMember.MemberRole.valueOf(pendingInvite.get().getAssignedRole().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                userRole = OrganizationMember.MemberRole.MEMBER;
+            }
+            inviteRepo.delete(pendingInvite.get());
+        } else {
+            if (pendingInvite.isPresent()) inviteRepo.delete(pendingInvite.get());
+
+            targetOrg = new Organization();
+            String orgName = request.getOrganizationName();
+            if (orgName == null || orgName.trim().isEmpty()) {
+                orgName = user.getFirstName() + "'s Personal Workspace";
+            }
+            targetOrg.setName(orgName);
+            targetOrg.setOwnerId(user.getId()); // Set the Owner ID
+            targetOrg = organizationRepository.save(targetOrg);
+            userRole = OrganizationMember.MemberRole.OWNER;
+        }
+
         OrganizationMember member = new OrganizationMember();
         member.setUser(user);
-        member.setOrganization(org);
-        member.setRole(OrganizationMember.MemberRole.OWNER);
+        member.setOrganization(targetOrg);
+        member.setRole(userRole);
         orgMemberRepository.save(member);
 
-        // 5. NEW: Mint the JWT with the specific Organization ID embedded
-        String targetOrgId = org.getId().toString();
-        String jwtToken = jwtService.generateToken(user, targetOrgId);
-
-        return AuthenticationResponse.builder()
-                .token(jwtToken)
-                .build();
+        String jwtToken = jwtService.generateToken(user, targetOrg.getId().toString());
+        return new AuthenticationResponse(jwtToken);
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-        // 1. The Vault Check
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        User user = userRepo.findByEmail(request.getEmail()).orElseThrow();
 
-        // 2. Fetch User
-        User user = userRepo.findByEmail(request.getEmail())
-                .orElseThrow();
-
-        // 3. NEW: Fetch their Workspace ID to embed in the token
         String targetOrgId = null;
         List<OrganizationMember> memberships = orgMemberRepository.findByUser(user);
         if (!memberships.isEmpty()) {
             targetOrgId = memberships.get(0).getOrganization().getId().toString();
         }
 
-        // 4. NEW: Mint the JWT using the overloaded method
         String jwtToken = jwtService.generateToken(user, targetOrgId);
-
-        return AuthenticationResponse.builder()
-                .token(jwtToken)
-                .build();
+        return new AuthenticationResponse(jwtToken);
     }
-
-    // PASSWORD RESET LOGIC STARTS HERE
 
     @Transactional
     public void processForgotPassword(String email) {
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("No account found with that email."));
-
-        // (This prevents the unique constraint crash)
+        User user = userRepo.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("No account found with that email."));
         tokenRepository.deleteByUser(user);
-
         String token = java.util.UUID.randomUUID().toString();
-
         PasswordResetToken resetToken = new PasswordResetToken(token, user);
         tokenRepository.save(resetToken);
-
-//        String resetUrl = "http://localhost:5173/reset-password?token=" + token;
         String resetUrl = frontendUrl + "/reset-password?token=" + token;
-
         emailService.sendPasswordResetEmail(user.getEmail(), resetUrl);
     }
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        PasswordResetToken resetToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or missing token."));
-
+        PasswordResetToken resetToken = tokenRepository.findByToken(token).orElseThrow(() -> new IllegalArgumentException("Invalid or missing token."));
         if (resetToken.isExpired()) {
             tokenRepository.delete(resetToken);
             throw new IllegalArgumentException("This reset link has expired. Please request a new one.");
         }
-
         User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepo.save(user);
-
         tokenRepository.delete(resetToken);
-
-        System.out.println("🔒 [AUTH] Password successfully reset for user: " + user.getEmail());
     }
 }

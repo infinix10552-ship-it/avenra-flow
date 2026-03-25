@@ -1,56 +1,64 @@
 package org.devx.automatedinvoicesystem.Security;
 
+import org.devx.automatedinvoicesystem.Entity.Organization;
 import org.devx.automatedinvoicesystem.Entity.OrganizationMember;
 import org.devx.automatedinvoicesystem.Entity.User;
 import org.devx.automatedinvoicesystem.Repository.OrganizationMemberRepo;
+import org.devx.automatedinvoicesystem.Repository.OrganizationRepo;
+import org.devx.automatedinvoicesystem.Repository.UserRepo;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
-@Component("tenantSecurity")
+@Component
 public class TenantSecurityManager {
 
+    private final OrganizationRepo orgRepo;
+    private final UserRepo userRepo;
     private final OrganizationMemberRepo memberRepo;
 
-    public TenantSecurityManager(OrganizationMemberRepo memberRepo) {
+    public TenantSecurityManager(OrganizationRepo orgRepo, UserRepo userRepo, OrganizationMemberRepo memberRepo) {
+        this.orgRepo = orgRepo;
+        this.userRepo = userRepo;
         this.memberRepo = memberRepo;
     }
 
-    // CHANGED: We now accept standard Strings to avoid SpEL Enum resolution bugs
-    public boolean hasRole(UUID orgId, String... allowedRoles) {
+    public void verifyOwnerAccess() {
+        String email = getCurrentUserId(); // Returns email
+        User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        UUID orgId = getCurrentOrganizationId();
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            System.out.println("SECURITY DENIED: No authenticated user found.");
-            return false;
+        Organization org = orgRepo.findById(orgId)
+                .orElseThrow(() -> new RuntimeException("Organization not found"));
+
+        if (org.getOwnerId() == null || !org.getOwnerId().equals(user.getId())) {
+            throw new RuntimeException("Security Error: Only organization owners can invite members");
+        }
+    }
+
+    public UUID getCurrentOrganizationId() {
+        String email = getCurrentUserId();
+        User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<OrganizationMember> memberships = memberRepo.findByUser(user);
+        if (memberships.isEmpty()) {
+            throw new RuntimeException("User does not belong to any organization");
         }
 
-        User currentUser = (User) authentication.getPrincipal();
+        return memberships.get(0).getOrganization().getId();
+    }
 
-        Optional<OrganizationMember> membershipOpt = memberRepo.findByUserIdAndOrganizationId(
-                currentUser.getId(),
-                orgId
-        );
+    public String getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        if (membershipOpt.isEmpty()) {
-            System.out.println("SECURITY DENIED: User " + currentUser.getId() + " is NOT a member of Org " + orgId);
-            return false;
+        if (auth != null && auth.getPrincipal() instanceof UserDetails) {
+            return ((UserDetails) auth.getPrincipal()).getUsername(); // This is the user's email
         }
 
-        // Get the role from the DB and convert it to a String
-        String userRole = membershipOpt.get().getRole().name();
-
-        for (String allowedRole : allowedRoles) {
-            if (userRole.equals(allowedRole)) {
-                System.out.println("SECURITY GRANTED: User is " + userRole);
-                return true;
-            }
-        }
-
-        System.out.println("SECURITY DENIED: User is " + userRole + " but endpoint requires " + String.join(", ", allowedRoles));
-        return false;
+        throw new RuntimeException("Unable to determine current user");
     }
 }

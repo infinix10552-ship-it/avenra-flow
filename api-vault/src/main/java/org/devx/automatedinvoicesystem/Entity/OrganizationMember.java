@@ -30,7 +30,7 @@ public class OrganizationMember extends Base {
 
         OWNER,  //The person who created the organization
         ADMIN,  //Can invite other users and manage billing
-        VIEWER  //can only view dashboards and extracted responses
+        MEMBER //can only view dashboards and extracted responses
 
     }
 
