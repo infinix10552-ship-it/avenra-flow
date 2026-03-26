@@ -28,15 +28,25 @@ public class TenantSecurityManager {
     }
 
     public void verifyOwnerAccess() {
-        String email = getCurrentUserId(); // Returns email
+        String email = getCurrentUserId();
         User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
         UUID orgId = getCurrentOrganizationId();
 
-        Organization org = orgRepo.findById(orgId)
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+        List<OrganizationMember> memberships = memberRepo.findByUser(user);
+        OrganizationMember currentMember = memberships.stream()
+                .filter(m -> m.getOrganization().getId().equals(orgId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("User is not a member of this organization"));
 
-        if (org.getOwnerId() == null || !org.getOwnerId().equals(user.getId())) {
+        if (!currentMember.getRole().toString().equalsIgnoreCase("OWNER")) {
             throw new RuntimeException("Security Error: Only organization owners can invite members");
+        }
+
+        Organization org = currentMember.getOrganization();
+        if (org.getOwnerId() == null) {
+            org.setOwnerId(user.getId());
+            orgRepo.save(org);
+            System.out.println("🔧 [AUTO-HEAL] Fixed missing owner_id for organization: " + org.getName());
         }
     }
 
@@ -56,9 +66,45 @@ public class TenantSecurityManager {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if (auth != null && auth.getPrincipal() instanceof UserDetails) {
-            return ((UserDetails) auth.getPrincipal()).getUsername(); // This is the user's email
+            return ((UserDetails) auth.getPrincipal()).getUsername();
         }
 
         throw new RuntimeException("Unable to determine current user");
+    }
+
+    // --- EXPLICIT METHOD OVERLOADS FOR SpEL ---
+    // These methods exactly match the signatures your controllers are asking for.
+
+    public boolean hasRole(UUID organizationId, String role1) {
+        return checkRoleLogic(organizationId, role1);
+    }
+
+    public boolean hasRole(UUID organizationId, String role1, String role2) {
+        return checkRoleLogic(organizationId, role1, role2);
+    }
+
+    public boolean hasRole(UUID organizationId, String role1, String role2, String role3) {
+        return checkRoleLogic(organizationId, role1, role2, role3);
+    }
+
+    private boolean checkRoleLogic(UUID organizationId, String... roles) {
+        String email = getCurrentUserId();
+        User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<OrganizationMember> memberships = memberRepo.findByUser(user);
+
+        for (OrganizationMember member : memberships) {
+            // We handle cases where the controller passes a null orgId by defaulting to their primary org
+            UUID checkOrgId = (organizationId != null) ? organizationId : getCurrentOrganizationId();
+
+            if (member.getOrganization().getId().equals(checkOrgId)) {
+                for (String role : roles) {
+                    if (member.getRole().toString().equalsIgnoreCase(role)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

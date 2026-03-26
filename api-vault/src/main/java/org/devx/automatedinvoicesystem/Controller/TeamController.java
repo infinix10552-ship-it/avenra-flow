@@ -21,6 +21,9 @@ public class TeamController {
     private final EmailService emailService;
     private final TenantSecurityManager tenantSecurityManager;
 
+    @org.springframework.beans.factory.annotation.Value("${app.frontend.url}")
+    private String frontendUrl;
+
     public TeamController(OrganizationInviteRepo inviteRepo, OrganizationRepo orgRepo, EmailService emailService, TenantSecurityManager tenantSecurityManager) {
         this.inviteRepo = inviteRepo;
         this.orgRepo = orgRepo;
@@ -30,7 +33,6 @@ public class TeamController {
 
     @PostMapping("/invite")
     public ResponseEntity<?> inviteMember(@RequestBody Map<String, String> payload) {
-        // Enforce Owner security logic
         tenantSecurityManager.verifyOwnerAccess();
 
         UUID orgId = tenantSecurityManager.getCurrentOrganizationId();
@@ -46,12 +48,13 @@ public class TeamController {
         OrganizationInvite invite = new OrganizationInvite(emailToInvite, org);
         inviteRepo.save(invite);
 
-        // Send them directly to your register page
-        String registerUrl = "https://avenra-flow.vercel.app/register";
+        // Build the correct URL and use the correct email method!
+        String baseFrontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
+        String registerUrl = baseFrontendUrl + "/register";
 
-        // We reuse the existing Brevo email setup here for speed
-        emailService.sendPasswordResetEmail(emailToInvite, registerUrl);
+        // Use the newly created method!
+        emailService.sendTeamInvitationEmail(emailToInvite, registerUrl);
 
-        return ResponseEntity.ok(Map.of("message", "Invitation sent successfully"));
+        return ResponseEntity.ok(Map.of("message", "Invitation securely dispatched!"));
     }
 }
