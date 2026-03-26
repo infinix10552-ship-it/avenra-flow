@@ -78,7 +78,7 @@ public class InvoiceController {
 
     // VIEW ENDPOINT
     @GetMapping
-    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'VIEWER')")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
     public ResponseEntity<List<Invoice>> getAllInvoices(
             @RequestHeader("X-Organization-Id") UUID organizationId // <-- ADDED: We must know WHICH org they want to view
     ) {
@@ -88,7 +88,7 @@ public class InvoiceController {
 
     // DYNAMIC SEARCH ENDPOINT
     @GetMapping("/search")
-    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'VIEWER')")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
     public ResponseEntity<List<Invoice>> searchInvoices(
             @RequestHeader("X-Organization-Id") UUID organizationId,
             @RequestParam(required = false) String vendorName,

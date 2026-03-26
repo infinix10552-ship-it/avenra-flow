@@ -27,7 +27,7 @@ public class EmailService {
 
         Map<String, Object> sender = new HashMap<>();
         sender.put("name", "Avenra FLOW Security");
-        sender.put("email", "no-reply@avenra.com"); // Adjust to your verified Brevo sender email
+        sender.put("email", "infinix10552@gmail.com");
 
         Map<String, String> to = new HashMap<>();
         to.put("email", toEmail);
@@ -61,7 +61,7 @@ public class EmailService {
 
         Map<String, Object> sender = new HashMap<>();
         sender.put("name", "Avenra FLOW Team");
-        sender.put("email", "no-reply@avenra.com"); // Adjust to your verified Brevo sender email
+        sender.put("email", "infinix10552@gmail.com");
 
         Map<String, String> to = new HashMap<>();
         to.put("email", toEmail);
