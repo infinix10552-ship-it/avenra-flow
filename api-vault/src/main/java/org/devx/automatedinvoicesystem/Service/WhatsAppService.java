@@ -30,10 +30,10 @@ public class WhatsAppService {
         PhoneNumber to = new PhoneNumber("whatsapp:" + targetPhoneNumber);
         PhoneNumber from = new PhoneNumber("whatsapp:" + fromWhatsAppNumber);
 
-        String textBody = String.format("Hello! Here is your processed invoice for *%s*. Total Amount: ₹%.2f. Category: %s.",
-                invoice.getVendorName() != null ? invoice.getVendorName() : "Unknown Vendor",
-                invoice.getTotalAmount() != null ? invoice.getTotalAmount() : 0.0,
-                invoice.getCategory() != null ? invoice.getCategory() : "N/A"
+        String textBody = String.format("Hello! Here is your processed invoice for *%s*. Total Amount: ₹%.2f. Ledger: %s.",
+                invoice.getSupplierName() != null ? invoice.getSupplierName() : "Unknown supplier",
+                invoice.getTotalAmount() != null ? invoice.getTotalAmount() : BigDecimal.ZERO,
+                invoice.getLedgerAccountName() != null ? invoice.getLedgerAccountName() : "N/A"
         );
 
 //        try {
