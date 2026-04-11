@@ -4,7 +4,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -33,7 +32,7 @@ public class WebSocketNotificationService {
         );
 
         // 3. THE BROADCAST: Fire it down the WebSocket highway
-        messagingTemplate.convertAndSend(destination, payload);
+        messagingTemplate.convertAndSend(destination, (Object) payload);
 
         System.out.println("🚀 [WEBSOCKET] Broadcasted update for Invoice " + invoiceId + " to Org " + organizationId);
     }
