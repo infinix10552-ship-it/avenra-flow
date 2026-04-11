@@ -34,13 +34,33 @@ public class InvoiceMessagePublisher {
             // This guarantees RabbitMQ gets clean text, completely bypassing Java Serialization (0xac).
             String pureJsonString = objectMapper.writeValueAsString(messagePayload);
 
-            System.out.println("🚀 Publishing Job to RabbitMQ for Invoice: " + invoice.getId());
-
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.INVOICE_EXCHANGE,
-                    RabbitMQConfig.INVOICE_ROUTING_KEY,
-                    pureJsonString
-            );
+            // ── TRANSACTIONAL ROBUSTNESS ──────────────────────────────────
+            // We only fire the message AFTER the database has committed.
+            // This prevents the "Race Condition" where the AI worker starts 
+            // processing before the Invoice ID exists in the DB.
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            System.out.println("🚀 [ASYNC] Transaction committed. Firing Job to RabbitMQ for Invoice: " + invoice.getId());
+                            rabbitTemplate.convertAndSend(
+                                    RabbitMQConfig.INVOICE_EXCHANGE,
+                                    RabbitMQConfig.INVOICE_ROUTING_KEY,
+                                    pureJsonString
+                            );
+                        }
+                    }
+                );
+            } else {
+                // No transaction? Fire immediately.
+                System.out.println("🚀 [SYNC] No active transaction. Firing Job to RabbitMQ for Invoice: " + invoice.getId());
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.INVOICE_EXCHANGE,
+                        RabbitMQConfig.INVOICE_ROUTING_KEY,
+                        pureJsonString
+                );
+            }
 
         } catch (JsonProcessingException e) {
             System.err.println("❌ Failed to parse payload into JSON: " + e.getMessage());
