@@ -20,11 +20,19 @@ public class WebhookController {
 
     // Python will send a structured JSON POST request here
     @PostMapping("/invoice-complete")
-    public ResponseEntity<String> handlePythonCompletion(@RequestBody WebhookPayload payload) {
-        // Payload contains: invoiceId, organizationId, financialMetadata (as a Map<String, Object>)
-        invoiceService.completeInvoiceProcessing(payload);
-
-        return ResponseEntity.ok("ACK: Financial metadata saved and WebSocket fired.");
+    public ResponseEntity<?> handlePythonCompletion(@RequestBody WebhookPayload payload) {
+        try {
+            System.out.println("📥 Receiving webhook for invoice: " + payload.getInvoiceId());
+            invoiceService.completeInvoiceProcessing(payload);
+            return ResponseEntity.ok(Map.of("message", "ACK: Financial metadata saved and WebSocket fired."));
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ WEBHOOK ERROR (Validation): " + e.getMessage());
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ WEBHOOK CRASH: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Internal Server Error: " + e.getMessage()));
+        }
     }
     
 }

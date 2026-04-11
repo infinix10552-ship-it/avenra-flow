@@ -33,7 +33,7 @@ public class WebSocketNotificationService {
         );
 
         // 3. THE BROADCAST: Fire it down the WebSocket highway
-        messagingTemplate.convertAndSend(destination, Optional.of(payload));
+        messagingTemplate.convertAndSend(destination, payload);
 
         System.out.println("🚀 [WEBSOCKET] Broadcasted update for Invoice " + invoiceId + " to Org " + organizationId);
     }

@@ -255,8 +255,16 @@ def parse_invoice_data(raw_text):
 def send_to_java(payload):
     print(f"[*] Firing Webhook to Java: {JAVA_WEBHOOK_URL}")
     response = requests.post(JAVA_WEBHOOK_URL, json=payload)
+    
+    if response.status_code >= 400:
+        print(f"[❌] Webhook Failed ({response.status_code}): {response.text}")
+        if 400 <= response.status_code < 500:
+            # 4xx error = our payload is wrong. Don't retry, it will never work.
+            return True 
+            
     response.raise_for_status()
     print(f"[✅] Java Acknowledged: {response.text}")
+    return False
 
 # ── RABBITMQ CONSUMER ──────────────────────────────────────────────
 
@@ -311,9 +319,13 @@ def process_invoice(ch, method, properties, body):
             print("═════════════════════════════════════════\n")
 
             # Step 5: Send to Java
-            send_to_java(webhook_payload)
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-            print("[✅] ACK sent. Ready for next job.")
+            is_permanent_failure = send_to_java(webhook_payload)
+            if is_permanent_failure:
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                print("[!] Job discarded due to permanent validation error.")
+            else:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                print("[✅] ACK sent. Ready for next job.")
 
         finally:
             if os.path.exists(temp_path):

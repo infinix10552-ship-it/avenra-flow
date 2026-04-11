@@ -21,35 +21,32 @@ public final class TaxCalculationValidator {
      */
     public static boolean isValid(BigDecimal baseTaxableAmount, BigDecimal cgst,
                                    BigDecimal sgst, BigDecimal igst, BigDecimal totalAmount) {
-        if (baseTaxableAmount == null || cgst == null || sgst == null
-                || igst == null || totalAmount == null) {
+        if (baseTaxableAmount == null || totalAmount == null) {
             return false;
         }
 
-        BigDecimal computedTotal = baseTaxableAmount
-                .add(cgst)
-                .add(sgst)
-                .add(igst);
+        BigDecimal b = baseTaxableAmount;
+        BigDecimal c = cgst != null ? cgst : BigDecimal.ZERO;
+        BigDecimal s = sgst != null ? sgst : BigDecimal.ZERO;
+        BigDecimal i = igst != null ? igst : BigDecimal.ZERO;
 
-        // compareTo() ignores scale differences (e.g., 100.00 == 100.0)
+        BigDecimal computedTotal = b.add(c).add(s).add(i);
+
         return computedTotal.compareTo(totalAmount) == 0;
     }
 
-    /**
-     * Returns the mismatch amount (computed - declared).
-     * Positive = over-declared, Negative = under-declared.
-     */
     public static BigDecimal getMismatchAmount(BigDecimal baseTaxableAmount, BigDecimal cgst,
                                                 BigDecimal sgst, BigDecimal igst, BigDecimal totalAmount) {
-        if (baseTaxableAmount == null || cgst == null || sgst == null
-                || igst == null || totalAmount == null) {
-            return null;
+        if (baseTaxableAmount == null || totalAmount == null) {
+            return BigDecimal.ZERO;
         }
 
-        BigDecimal computedTotal = baseTaxableAmount
-                .add(cgst)
-                .add(sgst)
-                .add(igst);
+        BigDecimal b = baseTaxableAmount;
+        BigDecimal c = cgst != null ? cgst : BigDecimal.ZERO;
+        BigDecimal s = sgst != null ? sgst : BigDecimal.ZERO;
+        BigDecimal i = igst != null ? igst : BigDecimal.ZERO;
+
+        BigDecimal computedTotal = b.add(c).add(s).add(i);
 
         return computedTotal.subtract(totalAmount);
     }
