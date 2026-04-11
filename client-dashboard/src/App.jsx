@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/useAuth";
-import LandingPage from "./pages/LandingPage"; // <-- Import the new page
+import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import OAuth2RedirectHandler from "./pages/OAuth2RedirectHandler";
@@ -12,6 +12,8 @@ import Settings from "./pages/Settings";
 import AllInvoices from "./pages/AllInvoices";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ClientsPage from "./pages/ClientsPage";
+import ReviewQueue from "./pages/ReviewQueue";
 
 // The Route Protector
 const ProtectedRoute = ({ children }) => {
@@ -37,13 +39,15 @@ function App() {
         </ProtectedRoute>
       }>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/clients" element={<ClientsPage />} />
         <Route path="/upload" element={<UploadHub />} />
         <Route path="/invoices" element={<AllInvoices />} />
         <Route path="/invoices/:id" element={<InvoiceDetails />} />
+        <Route path="/review-queue" element={<ReviewQueue />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 
-      {/* Fallback - Send unknown URLs back to the landing page */}
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

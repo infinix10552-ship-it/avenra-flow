@@ -6,24 +6,31 @@ import org.devx.automatedinvoicesystem.Entity.Invoice;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface InvoiceService {
 
     Invoice processInvoiceUpload(MultipartFile file, UUID organizationId);
 
-    // This method is used to retrieve a specific invoice by its ID and the organization it belongs to.
+    Invoice processInvoiceUpload(MultipartFile file, UUID organizationId, UUID clientId);
+
     List<Invoice> getAllInvoices();
 
-    // THE WEBHOOK METHOD: Python will call this when it finishes the OCR
-//    void completeInvoiceProcessing(UUID invoiceId, UUID organizationId, String extractedData);
+    List<Invoice> getAllInvoices(UUID organizationId);
 
-    // THE BULK ENGINE: Returns a summary report of the batch process
-    java.util.Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId);
+    List<Invoice> getInvoicesByClient(UUID clientId);
+
+    Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId);
+
+    Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId, UUID clientId);
 
     void completeInvoiceProcessing(WebhookPayload payload);
 
-    // Add this new method signature
     List<Invoice> searchInvoices(InvoiceSearchFilter filter);
 
+    // Review queue methods
+    Invoice approveInvoice(UUID invoiceId);
+
+    Invoice updateAndApproveInvoice(UUID invoiceId, WebhookPayload correctedData);
 }

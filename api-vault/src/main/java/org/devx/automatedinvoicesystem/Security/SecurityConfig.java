@@ -52,8 +52,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/webhook/**").permitAll()
                         // Health checks should be public so load balancers can ping them without needing a token
                         .requestMatchers("/health").permitAll()
-                        // Any request to the invoices API MUST be authenticated
+                        // Any request to core APIs MUST be authenticated
                         .requestMatchers("/api/v1/invoices/**").authenticated()
+                        .requestMatchers("/api/v1/clients/**").authenticated()
                         // Catch-all: Anything else must be authenticated
                         .anyRequest().authenticated()
                 )

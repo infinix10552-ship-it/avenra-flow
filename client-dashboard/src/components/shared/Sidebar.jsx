@@ -1,14 +1,16 @@
 import { NavLink } from "react-router-dom";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, UploadCloud, FileText, Settings, X } from "lucide-react";
+import { LayoutDashboard, UploadCloud, FileText, Settings, X, Users, ClipboardCheck } from "lucide-react";
 import { cn } from "../../lib/utils";
 import logo from "../../assets/avenra-logo.png"; 
 
 export default function Sidebar({ isOpen, onClose }) {
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Clients", href: "/clients", icon: Users },
     { name: "Upload Hub", href: "/upload", icon: UploadCloud },
     { name: "All Invoices", href: "/invoices", icon: FileText },
+    { name: "Review Queue", href: "/review-queue", icon: ClipboardCheck },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 

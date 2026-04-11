@@ -1,10 +1,12 @@
 package org.devx.automatedinvoicesystem.Controller;
 
+import org.devx.automatedinvoicesystem.DTO.InvoiceSearchFilter;
+import org.devx.automatedinvoicesystem.DTO.WebhookPayload;
 import org.devx.automatedinvoicesystem.Entity.Invoice;
 import org.devx.automatedinvoicesystem.Service.InvoiceService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize; // The Door Lock
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,15 +24,17 @@ public class InvoiceController {
         this.invoiceService = invoiceService;
     }
 
-    // UPLOAD ENDPOINT
+    // ── UPLOAD ENDPOINTS ──────────────────────────────────────────────
+
     @PostMapping("/upload")
     @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
     public ResponseEntity<?> uploadInvoice(
             @RequestParam("file") MultipartFile file,
-            @RequestHeader("X-Organization-Id") UUID organizationId) {
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @RequestParam(value = "clientId", required = false) UUID clientId) {
 
         try {
-            Invoice savedInvoice = invoiceService.processInvoiceUpload(file, organizationId);
+            Invoice savedInvoice = invoiceService.processInvoiceUpload(file, organizationId, clientId);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "message", "Invoice uploaded successfully",
@@ -42,24 +46,23 @@ public class InvoiceController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-        System.err.println("\n❌ FATAL UPLOAD CRASH:");
-        e.printStackTrace();
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "An unexpected error occurred during upload."));
-    }
+            System.err.println("\n❌ FATAL UPLOAD CRASH:");
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An unexpected error occurred during upload."));
+        }
     }
 
     @PostMapping("/upload/bulk")
     @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
     public ResponseEntity<?> uploadBulkInvoices(
             @RequestParam("file") MultipartFile zipFile,
-            @RequestHeader("X-Organization-Id") UUID organizationId) {
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @RequestParam(value = "clientId", required = false) UUID clientId) {
 
         try {
-            // Hand the ZIP file to the Conveyor Belt
-            Map<String, Integer> reportCard = invoiceService.processBulkUpload(zipFile, organizationId);
+            Map<String, Integer> reportCard = invoiceService.processBulkUpload(zipFile, organizationId, clientId);
 
-            // Return the report card to React (ex."40 Success, 5 Duplicates Skipped")
             return ResponseEntity.status(HttpStatus.OK).body(Map.of(
                     "message", "Bulk processing complete",
                     "report", reportCard
@@ -76,40 +79,81 @@ public class InvoiceController {
         }
     }
 
-    // VIEW ENDPOINT
+    // ── VIEW ENDPOINTS ────────────────────────────────────────────────
+
     @GetMapping
     @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
     public ResponseEntity<List<Invoice>> getAllInvoices(
-            @RequestHeader("X-Organization-Id") UUID organizationId // <-- ADDED: We must know WHICH org they want to view
-    ) {
-        List<Invoice> invoices = invoiceService.getAllInvoices();
+            @RequestHeader("X-Organization-Id") UUID organizationId) {
+        List<Invoice> invoices = invoiceService.getAllInvoices(organizationId);
         return ResponseEntity.ok(invoices);
     }
 
-    // DYNAMIC SEARCH ENDPOINT
+    @GetMapping("/client/{clientId}")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
+    public ResponseEntity<List<Invoice>> getInvoicesByClient(
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @PathVariable UUID clientId) {
+        return ResponseEntity.ok(invoiceService.getInvoicesByClient(clientId));
+    }
+
+    // ── SEARCH ENDPOINT ───────────────────────────────────────────────
+
     @GetMapping("/search")
     @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
     public ResponseEntity<List<Invoice>> searchInvoices(
             @RequestHeader("X-Organization-Id") UUID organizationId,
-            @RequestParam(required = false) String vendorName,
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) UUID clientId,
+            @RequestParam(required = false) String supplierName,
             @RequestParam(required = false) String status,
-            // Spring will automatically parse "2026-03-01" into a Java LocalDate
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate
     ) {
-        //Packing the shipping container
-        org.devx.automatedinvoicesystem.DTO.InvoiceSearchFilter filter = new org.devx.automatedinvoicesystem.DTO.InvoiceSearchFilter();
+        InvoiceSearchFilter filter = new InvoiceSearchFilter();
         filter.setOrganizationId(organizationId);
-        filter.setVendorName(vendorName);
-        filter.setCategory(category);
+        filter.setClientId(clientId);
+        filter.setSupplierName(supplierName);
         filter.setStatus(status);
         filter.setStartDate(startDate);
         filter.setEndDate(endDate);
 
-        // Fire the engine
-        List<Invoice> results = invoiceService.searchInvoices(filter);
+        return ResponseEntity.ok(invoiceService.searchInvoices(filter));
+    }
 
-        return ResponseEntity.ok(results);
+    // ── REVIEW QUEUE ENDPOINTS ────────────────────────────────────────
+
+    @PostMapping("/{invoiceId}/approve")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
+    public ResponseEntity<?> approveInvoice(
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @PathVariable UUID invoiceId) {
+        try {
+            Invoice approved = invoiceService.approveInvoice(invoiceId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Invoice approved",
+                    "invoiceId", approved.getId(),
+                    "status", approved.getStatus()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{invoiceId}/correct")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
+    public ResponseEntity<?> correctAndApproveInvoice(
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @PathVariable UUID invoiceId,
+            @RequestBody WebhookPayload correctedData) {
+        try {
+            Invoice corrected = invoiceService.updateAndApproveInvoice(invoiceId, correctedData);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Invoice corrected and approved",
+                    "invoiceId", corrected.getId(),
+                    "status", corrected.getStatus()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

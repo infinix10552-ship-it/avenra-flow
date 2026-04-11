@@ -8,14 +8,15 @@ import java.util.UUID;
 @Data
 public class InvoiceSearchFilter {
 
-    // The mandatory security anchor
+    // Mandatory security anchor
     private UUID organizationId;
 
-    // The optional user filters
-    private String vendorName;
-    private String category;
+    // Optional client scope
+    private UUID clientId;
+
+    // Optional user filters
+    private String supplierName;
     private String status;
     private LocalDate startDate;
     private LocalDate endDate;
-
 }

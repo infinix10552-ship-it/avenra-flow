@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion as Motion } from "framer-motion";
 import api from "../api/axiosInterceptor";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
-import { UploadCloud, FileArchive, CheckCircle2, AlertCircle, Loader2, FileText } from "lucide-react";
+import { UploadCloud, FileArchive, CheckCircle2, AlertCircle, Loader2, FileText, Users } from "lucide-react";
 
 const StatusMessage = ({ status }) => {
   if (status.type === "idle") return null;
@@ -37,13 +37,25 @@ export default function UploadHub() {
   const [singleStatus, setSingleStatus] = useState({ type: "idle", message: "" });
   const [bulkDragActive, setBulkDragActive] = useState(false);
   const [bulkStatus, setBulkStatus] = useState({ type: "idle", message: "", report: null });
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
 
   const singleInputRef = useRef(null);
   const bulkInputRef = useRef(null);
 
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await api.get("/clients");
+        setClients(res.data);
+      } catch (err) { console.error("Failed to fetch clients:", err); }
+    };
+    fetchClients();
+  }, []);
+
   const processUpload = async (file, isBulk = false) => {
     const setStatus = isBulk ? setBulkStatus : setSingleStatus;
-    const endpoint = isBulk ? "/invoices/upload/bulk" : "/invoices/upload";
+    let endpoint = isBulk ? "/invoices/upload/bulk" : "/invoices/upload";
     
     if (!file) return;
 
@@ -54,6 +66,11 @@ export default function UploadHub() {
     if (isBulk && !file.name.endsWith('.zip')) {
       setStatus({ type: "error", message: "Please upload a valid ZIP file." });
       return;
+    }
+
+    // Append clientId if selected
+    if (selectedClientId) {
+      endpoint += `?clientId=${selectedClientId}`;
     }
 
     setStatus({ type: "loading", message: `Encrypting and transmitting ${file.name}...` });
@@ -98,6 +115,24 @@ export default function UploadHub() {
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Data Ingestion Hub</h1>
         <p className="text-slate-500 mt-1">Upload financial documents for cognitive extraction and indexing.</p>
       </Motion.div>
+
+      {/* Client Selector */}
+      {clients.length > 0 && (
+        <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <Users className="w-5 h-5 text-avenra-500" />
+          <label className="text-sm font-medium text-slate-700">Assign to Client:</label>
+          <select
+            value={selectedClientId}
+            onChange={(e) => setSelectedClientId(e.target.value)}
+            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-avenra-500 focus:border-avenra-500 cursor-pointer"
+          >
+            <option value="">None (Unassigned)</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.clientName} — {c.clientGstin}</option>
+            ))}
+          </select>
+        </Motion.div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-8">
         

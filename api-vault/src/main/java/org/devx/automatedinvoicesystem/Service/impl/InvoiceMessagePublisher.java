@@ -26,6 +26,7 @@ public class InvoiceMessagePublisher {
         Map<String, Object> messagePayload = new HashMap<>();
         messagePayload.put("invoiceId", invoice.getId().toString());
         messagePayload.put("organizationId", invoice.getOrganization().getId().toString());
+        messagePayload.put("clientId", invoice.getClient() != null ? invoice.getClient().getId().toString() : null);
         messagePayload.put("fileUrl", invoice.getS3FileUrl());
 
         try {

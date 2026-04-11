@@ -13,43 +13,43 @@ public class InvoiceSpecification {
     public static Specification<Invoice> getSearchSpecification(InvoiceSearchFilter filter) {
         return (root, query, criteriaBuilder) -> {
 
-            // This list holds all our dynamic "AND" clauses
             List<Predicate> predicates = new ArrayList<>();
 
-            // "WHERE organization_id = ?"
-            predicates.add(criteriaBuilder.equal(root.get("organization").get("id"), filter.getOrganizationId()));
+            // Mandatory: Organization scope
+            predicates.add(criteriaBuilder.equal(
+                    root.get("organization").get("id"), filter.getOrganizationId()));
 
-            // DYNAMIC FILTERS (Only added if the user requested them)
+            // Optional: Client scope
+            if (filter.getClientId() != null) {
+                predicates.add(criteriaBuilder.equal(
+                        root.get("client").get("id"), filter.getClientId()));
+            }
 
-            if (filter.getVendorName() != null && !filter.getVendorName().trim().isEmpty()) {
-                // "AND vendor_name ILIKE '%amazon%'" (Case-insensitive search)
+            // Dynamic filters
+            if (filter.getSupplierName() != null && !filter.getSupplierName().trim().isEmpty()) {
                 predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("vendorName")),
-                        "%" + filter.getVendorName().toLowerCase() + "%"
+                        criteriaBuilder.lower(root.get("supplierName")),
+                        "%" + filter.getSupplierName().toLowerCase() + "%"
                 ));
             }
 
-            if (filter.getCategory() != null && !filter.getCategory().trim().isEmpty()) {
-                // "AND category = 'SOFTWARE'"
-                predicates.add(criteriaBuilder.equal(root.get("category"), filter.getCategory()));
-            }
-
             if (filter.getStatus() != null && !filter.getStatus().trim().isEmpty()) {
-                // "AND status = 'COMPLETED'"
-                predicates.add(criteriaBuilder.equal(root.get("status"), Invoice.ProcessingStatus.valueOf(filter.getStatus())));
+                predicates.add(criteriaBuilder.equal(
+                        root.get("status"), Invoice.ProcessingStatus.valueOf(filter.getStatus())));
             }
 
-            // THE DATE RANGE
+            // Date range
             if (filter.getStartDate() != null && filter.getEndDate() != null) {
-                // "AND invoice_date BETWEEN startDate AND endDate"
-                predicates.add(criteriaBuilder.between(root.get("invoiceDate"), filter.getStartDate(), filter.getEndDate()));
+                predicates.add(criteriaBuilder.between(
+                        root.get("invoiceDate"), filter.getStartDate(), filter.getEndDate()));
             } else if (filter.getStartDate() != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("invoiceDate"), filter.getStartDate()));
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(
+                        root.get("invoiceDate"), filter.getStartDate()));
             } else if (filter.getEndDate() != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("invoiceDate"), filter.getEndDate()));
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(
+                        root.get("invoiceDate"), filter.getEndDate()));
             }
 
-            // Glue all the predicates together with "AND"
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }

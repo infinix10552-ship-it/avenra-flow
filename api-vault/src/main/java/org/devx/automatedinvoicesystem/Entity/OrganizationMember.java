@@ -28,9 +28,11 @@ public class OrganizationMember extends Base {
 
     public enum MemberRole {
 
-        OWNER,  //The person who created the organization
-        ADMIN,  //Can invite other users and manage billing
-        MEMBER //can only view dashboards and extracted responses
+        OWNER,       // Admin (firm owner) — full access
+        ADMIN,       // Can invite users, manage billing, export
+        ACCOUNTANT,  // Can upload, review, approve invoices
+        MEMBER,      // Legacy — can only view dashboards
+        REVIEWER     // Can review and approve flagged invoices only
 
     }
 
