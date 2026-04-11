@@ -46,10 +46,10 @@ public class InvoiceController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            System.err.println("\n❌ FATAL UPLOAD CRASH:");
+            System.err.println("\n❌ FATAL UPLOAD CRASH: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "An unexpected error occurred during upload."));
+                    .body(Map.of("error", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred during upload."));
         }
     }
 
@@ -72,10 +72,10 @@ public class InvoiceController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            System.err.println("\n❌ FATAL BULK UPLOAD CRASH:");
+            System.err.println("\n❌ FATAL BULK UPLOAD CRASH: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "An unexpected error occurred during bulk upload."));
+                    .body(Map.of("error", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred during bulk upload."));
         }
     }
 
