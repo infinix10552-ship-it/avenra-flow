@@ -55,7 +55,7 @@ public class ClientLedgerService {
             throw new IllegalArgumentException("Ledger name cannot be blank.");
         }
 
-        if (clientLedgerRepo.existsByClientIdAndLedgerName(clientId, trimmedName)) {
+        if (clientLedgerRepo.existsByClientIdAndLedgerNameIgnoreCase(clientId, trimmedName)) {
             throw new IllegalArgumentException("Ledger '" + trimmedName + "' already exists for this client.");
         }
 
