@@ -41,11 +41,11 @@ public interface InvoiceRepo extends JpaRepository<Invoice, UUID>, JpaSpecificat
     
     long countByOrganizationIdAndStatus(UUID organizationId, Invoice.ProcessingStatus status);
 
-    @org.springframework.data.jpa.repository.Query("SELECT SUM(COALESCE(i.convertedAmountInr, i.totalAmount)) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 1")
-    java.math.BigDecimal sumTotalAmountByOrganizationId(UUID orgId);
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(COALESCE(i.convertedAmountInr, i.totalAmount)) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = :status")
+    java.math.BigDecimal sumTotalAmountByOrganizationId(UUID orgId, Invoice.ProcessingStatus status);
 
-    @org.springframework.data.jpa.repository.Query("SELECT SUM(COALESCE(i.cgst, 0) + COALESCE(i.sgst, 0) + COALESCE(i.igst, 0)) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 1")
-    java.math.BigDecimal sumTotalTaxByOrganizationId(UUID orgId);
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(COALESCE(i.cgst, 0) + COALESCE(i.sgst, 0) + COALESCE(i.igst, 0)) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = :status")
+    java.math.BigDecimal sumTotalTaxByOrganizationId(UUID orgId, Invoice.ProcessingStatus status);
 
     // Retry query: find failed invoices with retries remaining
     List<Invoice> findByStatusAndRetryCountLessThan(Invoice.ProcessingStatus status, int maxRetries);

@@ -432,8 +432,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         long needsReview = invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.REQUIRES_MANUAL_REVIEW);
         long failed = invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.FAILED);
 
-        BigDecimal totalBilling = invoiceRepository.sumTotalAmountByOrganizationId(organizationId);
-        BigDecimal totalTax = invoiceRepository.sumTotalTaxByOrganizationId(organizationId);
+        BigDecimal totalBilling = invoiceRepository.sumTotalAmountByOrganizationId(organizationId, Invoice.ProcessingStatus.COMPLETED);
+        BigDecimal totalTax = invoiceRepository.sumTotalTaxByOrganizationId(organizationId, Invoice.ProcessingStatus.COMPLETED);
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalInvoices", totalInvoices);
