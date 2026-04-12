@@ -11,6 +11,7 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "clients", uniqueConstraints = {
@@ -24,6 +25,7 @@ public class Client extends Base {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organization_id", nullable = false)
+    @JsonIgnore
     private Organization organization;
 
     @NotBlank(message = "Client name is required")
@@ -49,5 +51,6 @@ public class Client extends Base {
     // If no match → ledgerAccountName = null → REQUIRES_MANUAL_REVIEW.
 
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<ClientLedger> clientLedgers = new ArrayList<>();
 }

@@ -5,10 +5,12 @@ import api from "../api/axiosInterceptor";
 import { Card } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import FilterBar from "../components/shared/FilterBar";
+import { Eye, Trash2, X, FileText } from "lucide-react";
 
 export default function AllInvoices() {
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
   const navigate = useNavigate();
 
   const fetchInvoices = useCallback(async (filters = {}) => {
@@ -25,6 +27,17 @@ export default function AllInvoices() {
   }, []);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  const handleDelete = async (invoiceId) => {
+    const isConfirmed = window.confirm("Are you sure you want to permanently delete this invoice from the secure vault?");
+    if (!isConfirmed) return;
+    try {
+      await api.delete(`/invoices/${invoiceId}`);
+      setInvoices(invoices.filter(inv => inv.id !== invoiceId));
+    } catch (err) {
+      alert("Failed to delete invoice: Access denied or record not found.");
+    }
+  };
 
   const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
 
@@ -86,13 +99,32 @@ export default function AllInvoices() {
                       <td className="px-6 py-4 text-slate-600">{invoice.invoiceDate || "---"}</td>
                       <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
                       <td className="px-6 py-4 font-semibold text-right text-slate-900">{invoice.totalAmount ? formatCurrency(invoice.totalAmount) : "---"}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button 
-                          onClick={() => navigate(`/invoices/${invoice.id}`)}
-                          className="text-slate-500 hover:text-avenra-600 transition-colors p-1.5 rounded-md hover:bg-avenra-50 border border-transparent hover:border-avenra-200 font-medium text-xs flex items-center justify-center w-full shadow-sm bg-white"
-                        >
-                          View Record
-                        </button>
+                  <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button 
+                            title="View Data"
+                            onClick={() => navigate(`/invoices/${invoice.id}`)}
+                            className="text-slate-500 hover:text-avenra-600 transition-colors p-1.5 rounded-md hover:bg-avenra-50 border border-transparent hover:border-avenra-200 font-medium text-xs flex items-center justify-center shadow-sm bg-white"
+                          >
+                            View
+                          </button>
+                          {invoice.s3FileUrl && (
+                            <button 
+                              title="Preview Document"
+                              onClick={() => setPreviewPdfUrl(invoice.s3FileUrl)}
+                              className="text-slate-500 hover:text-blue-600 transition-colors p-1.5 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-200 shadow-sm bg-white"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button 
+                            title="Delete Document"
+                            onClick={() => handleDelete(invoice.id)}
+                            className="text-slate-500 hover:text-red-600 transition-colors p-1.5 rounded-md hover:bg-red-50 border border-transparent hover:border-red-200 shadow-sm bg-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </Motion.tr>
                   ))
@@ -102,6 +134,30 @@ export default function AllInvoices() {
           </div>
         </Card>
       </Motion.div>
+
+      {/* PDF PREVIEW MODAL */}
+      {previewPdfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:p-8">
+          <Motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <h3 className="font-bold text-slate-800 flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-blue-500" />
+                Document Preview
+              </h3>
+              <button onClick={() => setPreviewPdfUrl(null)} className="p-1.5 hover:bg-slate-200 rounded-md text-slate-500 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 bg-slate-300/50 relative">
+              <iframe src={`${previewPdfUrl}#toolbar=0`} className="absolute inset-0 w-full h-full border-0" title="PDF Preview" />
+            </div>
+          </Motion.div>
+        </div>
+      )}
     </div>
   );
 }

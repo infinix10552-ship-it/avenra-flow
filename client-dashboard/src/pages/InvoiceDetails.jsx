@@ -94,8 +94,8 @@ export default function InvoiceDetails() {
         </div>
         <div className="flex items-center space-x-3">
           {getStatusBadge(invoice.status)}
-          {invoice.s3Url && (
-            <Button variant="outline" onClick={() => window.open(invoice.s3Url, '_blank')} className="shadow-sm hover:shadow-md transition-shadow">
+          {invoice.s3FileUrl && (
+            <Button variant="outline" onClick={() => window.open(invoice.s3FileUrl, '_blank')} className="shadow-sm hover:shadow-md transition-shadow">
               <Download className="w-4 h-4 mr-2" /> Original File
             </Button>
           )}
@@ -114,8 +114,8 @@ export default function InvoiceDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 bg-slate-200/50 relative">
-              {invoice.s3Url ? (
-                <iframe src={`${invoice.s3Url}#toolbar=0`} className="absolute inset-0 w-full h-full border-0" title="Invoice PDF" />
+              {invoice.s3FileUrl ? (
+                <iframe src={`${invoice.s3FileUrl}#toolbar=0`} className="absolute inset-0 w-full h-full border-0" title="Invoice PDF" />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-white">
                   <FileText className="w-16 h-16 mb-4 opacity-20" />

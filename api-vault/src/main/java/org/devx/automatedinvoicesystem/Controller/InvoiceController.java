@@ -109,6 +109,19 @@ public class InvoiceController {
         }
     }
 
+    @DeleteMapping("/{invoiceId}")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
+    public ResponseEntity<?> deleteInvoice(
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @PathVariable UUID invoiceId) {
+        try {
+            invoiceService.deleteInvoiceById(invoiceId, organizationId);
+            return ResponseEntity.ok(Map.of("message", "Invoice securely deleted from the vault"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     // ── SEARCH ENDPOINT ───────────────────────────────────────────────
 
     @GetMapping("/search")

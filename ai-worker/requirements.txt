@@ -12,4 +12,7 @@ pytesseract
 Pillow
 pdf2image
 
+# Native PDF fast text extraction (skip OCR if possible)
+pypdf
+
 Flask==3.0.0

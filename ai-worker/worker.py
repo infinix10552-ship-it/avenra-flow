@@ -11,14 +11,12 @@ import pytesseract
 from datetime import datetime
 import threading
 from flask import Flask
+import pypdf
 
-# ══════════════════════════════════════════════════════════════════════
 # AVENRA AI WORKER v2.0 — CA-Grade GST Extraction Engine
-# ══════════════════════════════════════════════════════════════════════
 # This worker extracts 12 GST-specific fields from invoices with
 # per-field confidence scoring and strict schema validation.
 # No silent corrections. No assumptions. No fallbacks.
-# ══════════════════════════════════════════════════════════════════════
 
 # ── HEALTH CHECK SERVER (Render deployment) ────────────────────────
 
@@ -148,13 +146,28 @@ def download_file(url, local_path):
 def extract_text_from_file(file_path):
     extracted_text = ""
     if file_path.lower().endswith('.pdf'):
-        print("[*] PDF detected. Rasterizing at 300 DPI...")
-        pages = pdf2image.convert_from_path(file_path, dpi=300)
-        for page in pages:
-            gray_page = page.convert('L')
-            enhancer = ImageEnhance.Contrast(gray_page)
-            processed_page = enhancer.enhance(2.0)
-            extracted_text += pytesseract.image_to_string(processed_page) + "\n"
+        print("[*] PDF detected. Attempting native text extraction...")
+        try:
+            with open(file_path, "rb") as f:
+                reader = pypdf.PdfReader(f)
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        extracted_text += text + "\n"
+        except Exception as e:
+            print(f"[*] Native PDF extraction failed: {e}")
+            
+        if len(extracted_text.strip()) < 50:
+            print("[*] Less than 50 characters found. Proceeding with OCR rasterization at 300 DPI...")
+            extracted_text = ""
+            pages = pdf2image.convert_from_path(file_path, dpi=300)
+            for page in pages:
+                gray_page = page.convert('L')
+                enhancer = ImageEnhance.Contrast(gray_page)
+                processed_page = enhancer.enhance(2.0)
+                extracted_text += pytesseract.image_to_string(processed_page) + "\n"
+        else:
+            print(f"[*] Native text extracted successfully ({len(extracted_text)} chars). Skipping OCR.")
     else:
         print("[*] Image detected. Pre-processing...")
         image = Image.open(file_path)
@@ -203,7 +216,7 @@ def parse_invoice_data(raw_text, client_ledgers=None):
     4. GSTIN MUST be exactly 15 characters in the format: 2 digits + 5 uppercase + 4 digits + 1 uppercase + 1 alphanumeric + Z + 1 alphanumeric.
     5. invoiceDate MUST be in YYYY-MM-DD format.
     6. confidenceScore is YOUR self-assessment (0-100) of extraction accuracy.
-    {ledger_instruction}
+    7. For "totalAmount", extract the final Grand Total of the invoice (including all taxes). Do NOT extract the total tax amount. If the invoice has "Total Tax" and "Grand Total", totalAmount MUST be the Grand Total.{ledger_instruction}
     
     REQUIRED JSON SCHEMA:
     {{

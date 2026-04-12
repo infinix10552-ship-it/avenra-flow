@@ -404,6 +404,13 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
+    @Transactional
+    public void deleteInvoiceById(UUID invoiceId, UUID organizationId) {
+        Invoice invoice = getInvoiceById(invoiceId, organizationId);
+        invoiceRepository.delete(invoice);
+    }
+
+    @Override
     public List<Invoice> searchInvoices(InvoiceSearchFilter filter) {
         return invoiceRepository.findAll(
                 InvoiceSpecification.getSearchSpecification(filter),
