@@ -5,7 +5,8 @@ import api from "../api/axiosInterceptor";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
-import { ArrowLeft, Download, FileText, Building2, Calendar, DollarSign, Activity } from "lucide-react";
+import { ArrowLeft, Download, FileText, Building2, Calendar, DollarSign, Activity, Edit2, Save, X, CheckCircle2 } from "lucide-react";
+import { Input } from "../components/ui/Input";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -21,9 +22,9 @@ export default function InvoiceDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const [invoice, setInvoice] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchInvoiceDetails = async () => {
@@ -31,6 +32,7 @@ export default function InvoiceDetails() {
         setIsLoading(true);
         const response = await api.get(`/invoices/${id}`);
         setInvoice(response.data);
+        setEditForm(response.data);
       } catch {
         setError("Failed to locate this invoice in the secure vault.");
       } finally {
@@ -40,19 +42,49 @@ export default function InvoiceDetails() {
     fetchInvoiceDetails();
   }, [id]);
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
+  const formatAmount = (amount, currency = 'INR') => {
+    return new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
+      currency: currency || 'INR',
+      minimumFractionDigits: 2
+    }).format(amount || 0);
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      const response = await api.put(`/invoices/${id}/correct`, editForm);
+      setInvoice(response.data);
+      setIsEditing(false);
+      // Optional: show success toast
+    } catch (err) {
+      alert("Failed to save corrections: " + (err.response?.data?.error || err.message));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    try {
+      setIsSaving(true);
+      const response = await api.post(`/invoices/${id}/approve`);
+      setInvoice(response.data);
+    } catch (err) {
+      alert("Approval failed: " + (err.response?.data?.error || err.message));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getStatusBadge = (status, failureReason) => {
     switch (status) {
-      case "COMPLETED": return <Badge variant="success">Completed</Badge>;
+      case "COMPLETED": return <Badge variant="success" className="bg-emerald-50 text-emerald-700 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified</Badge>;
       case "PROCESSING": return <Badge variant="warning">AI Processing</Badge>;
       case "PENDING": return <Badge variant="default">Pending</Badge>;
-      case "REQUIRES_MANUAL_REVIEW": return <Badge variant="destructive">Needs Review</Badge>;
+      case "REQUIRES_MANUAL_REVIEW": return <Badge variant="destructive" className="animate-pulse">Action Required</Badge>;
       case "FAILED": return (
         <div className="flex flex-col items-start gap-1">
-          <Badge variant="destructive">Failed</Badge>
+          <Badge variant="destructive">Process Failure</Badge>
           {failureReason && <span className="text-[10px] text-red-500 font-medium whitespace-nowrap">({failureReason})</span>}
         </div>
       );
@@ -99,12 +131,33 @@ export default function InvoiceDetails() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          {getStatusBadge(invoice.status, invoice.failureReason)}
-          {invoice.s3FileUrl && (
-            <Button variant="outline" onClick={() => window.open(invoice.s3FileUrl, '_blank')} className="shadow-sm hover:shadow-md transition-shadow">
-              <Download className="w-4 h-4 mr-2" /> Original File
+          {invoice.status === "REQUIRES_MANUAL_REVIEW" && !isEditing && (
+            <Button onClick={handleApprove} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200/50">
+              Approve Record
             </Button>
           )}
+          
+          {isEditing ? (
+            <>
+              <Button variant="outline" onClick={() => { setIsEditing(false); setEditForm(invoice); }} disabled={isSaving}>
+                <X className="w-4 h-4 mr-2" /> Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving} className="bg-avenra-600 hover:bg-avenra-700 text-white">
+                <Save className="w-4 h-4 mr-2" /> {isSaving ? "Saving..." : "Save Corrections"}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => setIsEditing(true)} className="border-slate-200 hover:bg-slate-50">
+              <Edit2 className="w-4 h-4 mr-2 text-slate-500" /> Edit Metadata
+            </Button>
+          )}
+          
+          {invoice.s3FileUrl && (
+            <Button variant="outline" onClick={() => window.open(invoice.s3FileUrl, '_blank')} className="shadow-sm hover:shadow-md transition-shadow">
+              <Download className="w-4 h-4 mr-2" /> Raw PDF
+            </Button>
+          )}
+          {getStatusBadge(invoice.status, invoice.failureReason)}
         </div>
       </Motion.div>
 
@@ -141,21 +194,69 @@ export default function InvoiceDetails() {
                 <CardTitle className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Financial Summary</CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-6">
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-avenra-50 rounded-xl text-avenra-600 shadow-inner border border-avenra-100"><DollarSign className="w-6 h-6" /></div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
-                    <p className="text-4xl font-extrabold text-slate-900 tracking-tight">{formatCurrency(invoice.totalAmount)}</p>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-4">
+                    <div className="p-3 bg-avenra-50 rounded-xl text-avenra-600 shadow-inner border border-avenra-100"><DollarSign className="w-6 h-6" /></div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Amount {isEditing && "(Original)"}</p>
+                      {isEditing ? (
+                        <div className="flex items-center space-x-2">
+                          <select 
+                            value={editForm.originalCurrency || 'INR'} 
+                            onChange={(e) => setEditForm({...editForm, originalCurrency: e.target.value})}
+                            className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold"
+                          >
+                            {['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD'].map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <Input 
+                            type="number" 
+                            value={editForm.totalAmount} 
+                            onChange={(e) => setEditForm({...editForm, totalAmount: Number(e.target.value)})}
+                            className="w-32 font-bold text-lg"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-4xl font-extrabold text-slate-900 tracking-tight">{formatAmount(invoice.totalAmount, invoice.originalCurrency)}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {invoice.originalCurrency && invoice.originalCurrency !== 'INR' && (
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
+                    <div className="flex justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      <span>Live INR Conversion</span>
+                      <span>Rate: {invoice.exchangeRate}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-600">{formatAmount(invoice.convertedAmountInr, 'INR')}</p>
+                    {isEditing && (
+                      <div className="pt-2 flex items-center space-x-2">
+                        <span className="text-[10px] text-slate-400">Manual Rate:</span>
+                        <Input 
+                          type="number" 
+                          value={editForm.exchangeRate} 
+                          onChange={(e) => setEditForm({...editForm, exchangeRate: Number(e.target.value), convertedAmountInr: (editForm.totalAmount * Number(e.target.value))})}
+                          className="h-6 w-20 text-[10px] px-1"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                     <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Tax Amount</p>
-                    <p className="text-base font-bold text-slate-800">{formatCurrency((Number(invoice.cgst) || 0) + (Number(invoice.sgst) || 0) + (Number(invoice.igst) || 0))}</p>
+                    <p className="text-base font-bold text-slate-800">
+                      {formatAmount(
+                        (Number(isEditing ? editForm.cgst : invoice.cgst) || 0) + 
+                        (Number(isEditing ? editForm.sgst : invoice.sgst) || 0) + 
+                        (Number(isEditing ? editForm.igst : invoice.igst) || 0),
+                        isEditing ? editForm.originalCurrency : invoice.originalCurrency
+                      )}
+                    </p>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                    <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Currency</p>
-                    <p className="text-base font-bold text-slate-800">{invoice.currency || "INR"}</p>
+                    <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Tax Code</p>
+                    <p className="text-base font-bold text-slate-800">{invoice.hsnSac || "GSTR-2A"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -165,28 +266,54 @@ export default function InvoiceDetails() {
           <Motion.div variants={staggerItem}>
             <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="py-4 border-b border-slate-100 bg-slate-50/50">
-                <CardTitle className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Extracted Details</CardTitle>
+                <CardTitle className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Extracted Metadata</CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-5">
                 <div className="flex items-center space-x-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                   <div className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-lg text-indigo-500"><Building2 className="w-5 h-5" /></div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs text-slate-500 font-medium">Supplier Name</p>
-                    <p className="text-sm font-bold text-slate-900">{invoice.supplierName || "Unidentified Supplier"}</p>
+                    {isEditing ? (
+                      <Input 
+                        value={editForm.supplierName || ''} 
+                        onChange={(e) => setEditForm({...editForm, supplierName: e.target.value})}
+                        className="h-8 mt-1 text-sm font-bold"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-900">{invoice.supplierName || "Unidentified Supplier"}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                   <div className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-lg text-emerald-500"><Calendar className="w-5 h-5" /></div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs text-slate-500 font-medium">Invoice Date</p>
-                    <p className="text-sm font-bold text-slate-900">{invoice.invoiceDate || "---"}</p>
+                    {isEditing ? (
+                      <Input 
+                        type="date"
+                        value={editForm.invoiceDate || ''} 
+                        onChange={(e) => setEditForm({...editForm, invoiceDate: e.target.value})}
+                        className="h-8 mt-1 text-sm font-bold"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-900">{invoice.invoiceDate || "---"}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                   <div className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-lg text-amber-500"><Activity className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium">Ledger Account</p>
-                    <p className="text-sm font-bold text-slate-900">{invoice.ledgerAccountName || "Unmapped Ledger"}</p>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-500 font-medium">Ledger Account Mapping</p>
+                    {isEditing ? (
+                      <Input 
+                        value={editForm.ledgerAccountName || ''} 
+                        onChange={(e) => setEditForm({...editForm, ledgerAccountName: e.target.value})}
+                        placeholder="Type to map ledger..."
+                        className="h-8 mt-1 text-sm font-bold"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-900">{invoice.ledgerAccountName || "Unmapped Ledger"}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>

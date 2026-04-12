@@ -164,12 +164,12 @@ public class InvoiceValidationService {
             return;
         }
 
-        // PRD §2.2: Must be an EXACT match from clientLedgers
-        boolean ledgerExists = clientLedgerRepo.existsByClientIdAndLedgerName(clientId, ledgerAccountName);
+        // PRD §2.2: Must be a match from clientLedgers (now case-insensitive)
+        boolean ledgerExists = clientLedgerRepo.existsByClientIdAndLedgerNameIgnoreCase(clientId, ledgerAccountName);
         if (!ledgerExists) {
             failures.add("Ledger '" + ledgerAccountName
                     + "' not found in client's Chart of Accounts. "
-                    + "Must be an exact match from the allowed list.");
+                    + "Available options: " + clientLedgerRepo.findLedgerNamesByClientId(clientId));
         }
     }
 }

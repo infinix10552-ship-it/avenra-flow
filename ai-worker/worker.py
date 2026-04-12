@@ -196,27 +196,30 @@ def parse_invoice_data(raw_text, client_ledgers=None):
     if client_ledgers and len(client_ledgers) > 0:
         ledger_list = json.dumps(client_ledgers)
         ledger_instruction = f"""
-    7. For ledgerAccountName, you MUST select an EXACT match from this allowed list:
+    7. For ledgerAccountName, you MUST select the most appropriate match from this allowed list:
        {ledger_list}
-       If NONE of these match the invoice's expense category, set ledgerAccountName to null.
-       DO NOT invent or create new categories. EXACT MATCH ONLY."""
+       If one of these categories is a semantic match (even if it differs slightly in case or suffix), select it.
+       If NONE of these are remotely related to the invoice expense, set ledgerAccountName to null.
+       DO NOT invent or create new categories outside this list."""
     else:
         ledger_instruction = """
     7. No Chart of Accounts provided. Set ledgerAccountName to null."""
 
     prompt = f"""
-    You are a CA-grade GST data extraction engine for Indian invoices.
+    You are a professional global financial data extraction engine. 
     
-    Read the following OCR text from a financial invoice and extract ALL fields below.
+    Read the following OCR text from an invoice (which may be in USD, EUR, INR, or other currencies) and extract ALL fields below.
     
     STRICT RULES:
-    1. Output ONLY a valid JSON object with EXACTLY these 13 keys.
+    1. Output ONLY a valid JSON object with EXACTLY these 14 keys.
     2. If a field cannot be found, set its value to null — DO NOT guess.
     3. All monetary values MUST be pure numbers (no commas, no currency symbols).
-    4. GSTIN MUST be exactly 15 characters in the format: 2 digits + 5 uppercase + 4 digits + 1 uppercase + 1 alphanumeric + Z + 1 alphanumeric.
-    5. invoiceDate MUST be in YYYY-MM-DD format.
-    6. confidenceScore is YOUR self-assessment (0-100) of extraction accuracy.
-    7. For "totalAmount", extract the final Grand Total of the invoice (including all taxes). Do NOT extract the total tax amount. If the invoice has "Total Tax" and "Grand Total", totalAmount MUST be the Grand Total.{ledger_instruction}
+    4. "currency" MUST be the 3-letter ISO code (e.g., USD, INR, EUR, AED, GBP).
+    5. GSTIN (if present) MUST be exactly 15 characters. If the invoice is non-Indian/international and has no GSTIN, set both GSTIN fields to null.
+    6. invoiceDate MUST be in YYYY-MM-DD format.
+    7. confidenceScore is YOUR self-assessment (0-100) of extraction accuracy.
+    8. For "totalAmount", extract the final Grand Total of the invoice (including all taxes and surcharges). 
+       This is the final amount the buyer must pay and it MUST be in the original currency stated on the invoice.{ledger_instruction}
     
     REQUIRED JSON SCHEMA:
     {{
@@ -231,6 +234,7 @@ def parse_invoice_data(raw_text, client_ledgers=None):
         "sgst": number or null,
         "igst": number or null,
         "totalAmount": number or null,
+        "currency": "3-letter ISO code",
         "ledgerAccountName": "string from allowed list or null",
         "confidenceScore": number (0-100)
     }}
@@ -253,40 +257,67 @@ def parse_invoice_data(raw_text, client_ledgers=None):
         "temperature": 0.0
     }
 
-    response = requests.post(GROQ_URL, headers=headers, json=payload)
+    try:
+        response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(f"Groq API rejected request: HTTP {response.status_code} — {response.text}")
+        
+        ai_output = response.json()['choices'][0]['message']['content']
+        structured_data = json.loads(ai_output)
 
-    if response.status_code != 200:
-        raise RuntimeError(f"Groq API rejected request: HTTP {response.status_code} — {response.text}")
+        # ── CURRENCY CONVERSION ENGINE ──────────────────────────────────
+        currency = structured_data.get("currency", "INR")
+        total_amount = structured_data.get("totalAmount")
+        
+        exchange_rate = 1.0
+        converted_amount_inr = total_amount
 
-    response.raise_for_status()
-    ai_output = response.json()['choices'][0]['message']['content']
-    structured_data = json.loads(ai_output)
-
-    # STRICT SCHEMA VALIDATION — reject if any field is missing
-    is_valid, missing_fields = validate_ai_output(structured_data)
-    if not is_valid:
-        raise ValueError(f"AI output schema violation. Missing fields: {missing_fields}")
-
-    # Sanitize numeric fields to Decimal-safe strings
-    for numeric_field in ("baseAmount", "cgst", "sgst", "igst", "totalAmount"):
-        val = structured_data.get(numeric_field)
-        if val is not None:
+        if currency and currency.upper() != "INR" and total_amount:
+            print(f"[*] Detecting foreign currency: {currency}. Fetching live exchange rates...")
             try:
-                structured_data[numeric_field] = float(Decimal(str(val)))
-            except (InvalidOperation, ValueError):
-                structured_data[numeric_field] = None
+                # Use Frankfurter API (Open source, no key required)
+                rate_res = requests.get(f"https://api.frankfurter.dev/latest?from={currency.upper()}&to=INR", timeout=10)
+                if rate_res.status_code == 200:
+                    rate_data = rate_res.json()
+                    exchange_rate = rate_data['rates']['INR']
+                    converted_amount_inr = round(total_amount * exchange_rate, 2)
+                    print(f"[*] Live Conversion: 1 {currency} = {exchange_rate} INR. Converted Total: {converted_amount_inr}")
+                else:
+                    print(f"[!] Currency API failed (Status {rate_res.status_code}). Defaulting 1.0")
+            except Exception as e:
+                print(f"[!] Exchange rate fetch failed: {str(e)}")
 
-    # PRD §2.2: Backend enforcement — if AI returned a ledger not in the allowed list, force null
-    if client_ledgers and structured_data.get("ledgerAccountName"):
-        if structured_data["ledgerAccountName"] not in client_ledgers:
-            print(f"[⚠️] AI returned ledger '{structured_data['ledgerAccountName']}' not in allowed list. Forcing null.")
-            structured_data["ledgerAccountName"] = None
+        structured_data["exchangeRate"] = exchange_rate
+        structured_data["convertedAmountInr"] = converted_amount_inr
 
-    # Compute per-field weighted confidence (override AI self-assessment)
-    computed_confidence = compute_global_confidence(structured_data)
-    structured_data["confidenceScore"] = computed_confidence
+        # Sanitize numeric fields to Decimal-safe strings/floats
+        for numeric_field in ("baseAmount", "cgst", "sgst", "igst", "totalAmount", "convertedAmountInr"):
+            val = structured_data.get(numeric_field)
+            if val is not None:
+                try:
+                    structured_data[numeric_field] = float(Decimal(str(val)))
+                except (InvalidOperation, ValueError):
+                    structured_data[numeric_field] = None
 
-    return structured_data
+        # PRD §2.2: Backend enforcement — if AI returned a ledger not in the allowed list, force null
+        if client_ledgers and structured_data.get("ledgerAccountName"):
+            # Check for case-insensitive match just in case, but keep strictness
+            allowed_match = next((l for l in client_ledgers if l.lower() == structured_data["ledgerAccountName"].lower()), None)
+            if not allowed_match:
+                print(f"[⚠️] AI returned ledger '{structured_data['ledgerAccountName']}' not in allowed list. Forcing null.")
+                structured_data["ledgerAccountName"] = None
+            else:
+                structured_data["ledgerAccountName"] = allowed_match
+
+        # Compute per-field weighted confidence (override AI self-assessment)
+        computed_confidence = compute_global_confidence(structured_data)
+        structured_data["confidenceScore"] = computed_confidence
+
+        return structured_data
+
+    except Exception as e:
+        print(f"[-] Data extraction or conversion failed: {str(e)}")
+        raise e
 
 # ── WEBHOOK TO JAVA ────────────────────────────────────────────────
 

@@ -137,6 +137,7 @@ export default function ClientsPage() {
                   <th className="px-6 py-4 font-semibold">Client Name</th>
                   <th className="px-6 py-4 font-semibold">GSTIN</th>
                   <th className="px-6 py-4 font-semibold">Financial Year</th>
+                  <th className="px-6 py-4 font-semibold text-center">Ledger Status</th>
                   <th className="px-6 py-4 font-semibold">Created</th>
                   <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
@@ -144,7 +145,7 @@ export default function ClientsPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                       <div className="flex justify-center mb-2">
                         <div className="w-6 h-6 border-2 border-avenra-500 border-t-transparent rounded-full animate-spin"></div>
                       </div>
@@ -153,7 +154,7 @@ export default function ClientsPage() {
                   </tr>
                 ) : clients.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                       <Users className="w-10 h-10 mx-auto text-slate-300 mb-3" />
                       No clients yet. Add your first client to get started.
                     </td>
@@ -165,6 +166,17 @@ export default function ClientsPage() {
                       <td className="px-6 py-4 font-medium text-slate-900">{client.clientName}</td>
                       <td className="px-6 py-4"><Badge variant="default" className="font-mono text-xs">{client.clientGstin}</Badge></td>
                       <td className="px-6 py-4 text-slate-600"><Calendar className="w-3.5 h-3.5 inline mr-1.5 text-slate-400"/>{client.financialYear}</td>
+                      <td className="px-6 py-4 text-center">
+                         {client.clientLedgers?.length > 0 ? (
+                           <Badge variant="success" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                             {client.clientLedgers.length} Ledgers
+                           </Badge>
+                         ) : (
+                           <Badge variant="warning" className="bg-amber-50 text-amber-700 border-amber-200">
+                             Unassigned
+                           </Badge>
+                         )}
+                       </td>
                       <td className="px-6 py-4 text-slate-500 text-xs">{new Date(client.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-right">
                         <Button variant="outline" size="sm" onClick={() => setSelectedClientForLedger(client)}>
@@ -183,6 +195,7 @@ export default function ClientsPage() {
       <LedgerModal 
         isOpen={!!selectedClientForLedger} 
         onClose={() => setSelectedClientForLedger(null)} 
+        onUpdate={fetchClients}
         client={selectedClientForLedger} 
       />
     </div>

@@ -19,7 +19,7 @@ public interface ClientLedgerRepo extends JpaRepository<ClientLedger, UUID> {
 
     List<ClientLedger> findByClientId(UUID clientId);
 
-    boolean existsByClientIdAndLedgerName(UUID clientId, String ledgerName);
+    boolean existsByClientIdAndLedgerNameIgnoreCase(UUID clientId, String ledgerName);
 
     void deleteByClientId(UUID clientId);
 

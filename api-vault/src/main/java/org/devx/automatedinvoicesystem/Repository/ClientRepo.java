@@ -10,6 +10,7 @@ import java.util.UUID;
 @Repository
 public interface ClientRepo extends JpaRepository<Client, UUID> {
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"clientLedgers"})
     List<Client> findByOrganizationIdOrderByClientNameAsc(UUID organizationId);
 
     boolean existsByClientGstinAndOrganizationId(String clientGstin, UUID organizationId);

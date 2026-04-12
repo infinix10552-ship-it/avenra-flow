@@ -51,6 +51,5 @@ public class Client extends Base {
     // If no match → ledgerAccountName = null → REQUIRES_MANUAL_REVIEW.
 
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore
     private List<ClientLedger> clientLedgers = new ArrayList<>();
 }

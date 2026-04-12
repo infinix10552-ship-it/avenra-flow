@@ -6,7 +6,7 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { X, Plus, Trash2, List, FileSpreadsheet, RefreshCw } from "lucide-react";
 
-export default function LedgerModal({ isOpen, onClose, client }) {
+export default function LedgerModal({ isOpen, onClose, onUpdate, client }) {
   const [ledgers, setLedgers] = useState([]);
   const [newLedgerName, setNewLedgerName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +37,7 @@ export default function LedgerModal({ isOpen, onClose, client }) {
       await api.post(`/clients/${client.id}/ledgers`, { ledgerName: newLedgerName });
       setNewLedgerName("");
       fetchLedgers();
+      if (onUpdate) onUpdate();
     } catch (err) {
       console.error("Add failed:", err);
       alert(err.response?.data?.error || "Failed to add ledger");
@@ -47,6 +48,7 @@ export default function LedgerModal({ isOpen, onClose, client }) {
     try {
       await api.delete(`/clients/${client.id}/ledgers/${ledgerId}`);
       fetchLedgers();
+      if (onUpdate) onUpdate();
     } catch (err) {
       console.error("Delete failed:", err);
     }
@@ -60,6 +62,7 @@ export default function LedgerModal({ isOpen, onClose, client }) {
       setBulkText("");
       setActiveTab("list");
       fetchLedgers();
+      if (onUpdate) onUpdate();
     } catch (err) {
       console.error("Bulk replace failed:", err);
       alert(err.response?.data?.error || "Failed to replace ledgers");

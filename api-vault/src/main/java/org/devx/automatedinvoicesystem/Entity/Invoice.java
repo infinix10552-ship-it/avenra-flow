@@ -99,6 +99,15 @@ public class Invoice extends Base {
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "original_currency", length = 3, nullable = false)
+    private String originalCurrency = "INR";
+
+    @Column(name = "exchange_rate", precision = 15, scale = 6)
+    private BigDecimal exchangeRate = BigDecimal.ONE;
+
+    @Column(name = "converted_amount_inr", precision = 15, scale = 2)
+    private BigDecimal convertedAmountInr;
+
     // ── AI METADATA ───────────────────────────────────────────────────
 
     @Column(name = "ai_confidence_score")

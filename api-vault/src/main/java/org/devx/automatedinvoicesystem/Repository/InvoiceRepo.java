@@ -41,10 +41,10 @@ public interface InvoiceRepo extends JpaRepository<Invoice, UUID>, JpaSpecificat
     
     long countByOrganizationIdAndStatus(UUID organizationId, Invoice.ProcessingStatus status);
 
-    @org.springframework.data.jpa.repository.Query("SELECT SUM(i.totalAmount) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 'COMPLETED'")
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(COALESCE(i.convertedAmountInr, i.totalAmount)) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 1")
     java.math.BigDecimal sumTotalAmountByOrganizationId(UUID orgId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT SUM(i.cgst + i.sgst + i.igst) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 'COMPLETED'")
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(COALESCE(i.cgst, 0) + COALESCE(i.sgst, 0) + COALESCE(i.igst, 0)) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 1")
     java.math.BigDecimal sumTotalTaxByOrganizationId(UUID orgId);
 
     // Retry query: find failed invoices with retries remaining

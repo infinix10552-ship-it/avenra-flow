@@ -38,6 +38,11 @@ public class WebhookPayload {
     private BigDecimal igst;
     private BigDecimal totalAmount;
 
+    // ── MULTI-CURRENCY DATA (NEW) ─────────────────────────────────────
+    private String currency;
+    private BigDecimal exchangeRate;
+    private BigDecimal convertedAmountInr;
+
     // ── LEDGER MAPPING (PRD §2.1 — must be exact match from clientLedgers or null)
     private String ledgerAccountName;
 

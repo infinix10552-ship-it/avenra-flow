@@ -227,6 +227,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setTotalAmount(payload.getTotalAmount());
         invoice.setAiConfidenceScore(payload.getConfidenceScore());
         invoice.setLedgerAccountName(payload.getLedgerAccountName());
+        
+        // Map multi-currency fields
+        if (payload.getCurrency() != null) invoice.setOriginalCurrency(payload.getCurrency());
+        if (payload.getExchangeRate() != null) invoice.setExchangeRate(payload.getExchangeRate());
+        invoice.setConvertedAmountInr(payload.getConvertedAmountInr());
 
         processingLogRepo.save(ProcessingLog.create(
                 invoice, ProcessingLog.LogLevel.INFO, "AI_EXTRACTION",
@@ -447,21 +452,41 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<Invoice> completedInvoices = invoiceRepository.findByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.COMPLETED);
         
         StringBuilder csv = new StringBuilder();
-        csv.append("Invoice Date,Invoice Number,Supplier Name,Supplier GSTIN,Buyer GSTIN,HSN/SAC,Base Amount,CGST,SGST,IGST,Total Amount,Ledger Account\n");
+        // GSTR-2A / Tally Compliant Header
+        csv.append("Date,Invoice No,Supplier,Supplier GSTIN,Buyer GSTIN,HSN/SAC,")
+           .append("Base (Org),CGST (Org),SGST (Org),IGST (Org),Total (Org),")
+           .append("Currency,Ex Rate,")
+           .append("Base (INR),CGST (INR),SGST (INR),IGST (INR),Total (INR),")
+           .append("Ledger\n");
         
         for (Invoice inv : completedInvoices) {
-            csv.append(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+            BigDecimal rate = inv.getExchangeRate() != null ? inv.getExchangeRate() : BigDecimal.ONE;
+            
+            // Map original values
+            BigDecimal bOrg = inv.getBaseTaxableAmount() != null ? inv.getBaseTaxableAmount() : BigDecimal.ZERO;
+            BigDecimal cOrg = inv.getCgst() != null ? inv.getCgst() : BigDecimal.ZERO;
+            BigDecimal sOrg = inv.getSgst() != null ? inv.getSgst() : BigDecimal.ZERO;
+            BigDecimal iOrg = inv.getIgst() != null ? inv.getIgst() : BigDecimal.ZERO;
+            BigDecimal tOrg = inv.getTotalAmount() != null ? inv.getTotalAmount() : BigDecimal.ZERO;
+
+            // Compute INR values
+            BigDecimal bInr = bOrg.multiply(rate).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal cInr = cOrg.multiply(rate).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal sInr = sOrg.multiply(rate).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal iInr = iOrg.multiply(rate).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal tInr = inv.getConvertedAmountInr() != null ? inv.getConvertedAmountInr() : tOrg.multiply(rate).setScale(2, java.math.RoundingMode.HALF_UP);
+
+            csv.append(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
                 inv.getInvoiceDate(),
                 escapeCsv(inv.getInvoiceNumber()),
                 escapeCsv(inv.getSupplierName()),
                 inv.getSupplierGstin(),
                 inv.getBuyerGstin(),
                 escapeCsv(inv.getHsnSacCode()),
-                inv.getBaseTaxableAmount(),
-                inv.getCgst(),
-                inv.getSgst(),
-                inv.getIgst(),
-                inv.getTotalAmount(),
+                bOrg, cOrg, sOrg, iOrg, tOrg,
+                inv.getOriginalCurrency(),
+                rate,
+                bInr, cInr, sInr, iInr, tInr,
                 escapeCsv(inv.getLedgerAccountName())
             ));
         }
