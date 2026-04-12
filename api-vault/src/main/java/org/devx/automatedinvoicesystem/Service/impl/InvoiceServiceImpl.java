@@ -5,9 +5,11 @@ import org.devx.automatedinvoicesystem.DTO.WebhookPayload;
 import org.devx.automatedinvoicesystem.Entity.Client;
 import org.devx.automatedinvoicesystem.Entity.Invoice;
 import org.devx.automatedinvoicesystem.Entity.Invoice.ProcessingStatus;
+import org.devx.automatedinvoicesystem.Entity.InvoiceAuditLog;
 import org.devx.automatedinvoicesystem.Entity.Organization;
 import org.devx.automatedinvoicesystem.Entity.ProcessingLog;
 import org.devx.automatedinvoicesystem.Repository.ClientRepo;
+import org.devx.automatedinvoicesystem.Repository.InvoiceAuditLogRepo;
 import org.devx.automatedinvoicesystem.Repository.InvoiceRepo;
 import org.devx.automatedinvoicesystem.Repository.OrganizationRepo;
 import org.devx.automatedinvoicesystem.Repository.ProcessingLogRepo;
@@ -15,8 +17,8 @@ import org.devx.automatedinvoicesystem.Service.FileStorageService;
 import org.devx.automatedinvoicesystem.Service.InvoiceService;
 import org.devx.automatedinvoicesystem.Service.WebSocketNotificationService;
 import org.devx.automatedinvoicesystem.Specification.InvoiceSpecification;
-import org.devx.automatedinvoicesystem.Validation.GstinValidator;
-import org.devx.automatedinvoicesystem.Validation.TaxCalculationValidator;
+import org.devx.automatedinvoicesystem.Validation.InvoiceValidationService;
+import org.devx.automatedinvoicesystem.Validation.InvoiceValidationService.ValidationResult;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -38,23 +41,29 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final OrganizationRepo organizationRepository;
     private final ClientRepo clientRepository;
     private final ProcessingLogRepo processingLogRepo;
+    private final InvoiceAuditLogRepo auditLogRepo;
     private final InvoiceMessagePublisher invoiceMessagePublisher;
     private final WebSocketNotificationService notificationService;
+    private final InvoiceValidationService validationService;
 
     public InvoiceServiceImpl(FileStorageService fileStorageService,
                               InvoiceRepo invoiceRepository,
                               OrganizationRepo organizationRepository,
                               ClientRepo clientRepository,
                               ProcessingLogRepo processingLogRepo,
+                              InvoiceAuditLogRepo auditLogRepo,
                               InvoiceMessagePublisher invoiceMessagePublisher,
-                              WebSocketNotificationService notificationService) {
+                              WebSocketNotificationService notificationService,
+                              InvoiceValidationService validationService) {
         this.fileStorageService = fileStorageService;
         this.invoiceRepository = invoiceRepository;
         this.organizationRepository = organizationRepository;
         this.clientRepository = clientRepository;
         this.processingLogRepo = processingLogRepo;
+        this.auditLogRepo = auditLogRepo;
         this.invoiceMessagePublisher = invoiceMessagePublisher;
         this.notificationService = notificationService;
+        this.validationService = validationService;
     }
 
     // ── SINGLE UPLOAD (Legacy — no client scope) ──────────────────────
@@ -74,7 +83,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalArgumentException("Cannot upload an empty file.");
         }
 
-        // Cryptographic deduplication
+        // Cryptographic deduplication (file-level)
         String fileFingerprint = generateFileHash(file);
         if (invoiceRepository.existsByFileHashAndOrganizationId(fileFingerprint, organizationId)) {
             throw new IllegalArgumentException("Duplicate detected: This exact document has already been uploaded.");
@@ -102,7 +111,6 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Invoice savedInvoice = invoiceRepository.save(newInvoice);
 
-        // Audit log
         processingLogRepo.save(ProcessingLog.create(
                 savedInvoice, ProcessingLog.LogLevel.INFO, "UPLOAD",
                 "Invoice uploaded: " + file.getOriginalFilename()
@@ -197,7 +205,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         return report;
     }
 
-    // ── WEBHOOK COMPLETION (v2.0 — Full Validation) ───────────────────
+    // ── WEBHOOK COMPLETION (v2.1 — Centralized Validation Pipeline) ──
 
     @Override
     @Transactional
@@ -218,70 +226,52 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setIgst(payload.getIgst());
         invoice.setTotalAmount(payload.getTotalAmount());
         invoice.setAiConfidenceScore(payload.getConfidenceScore());
+        invoice.setLedgerAccountName(payload.getLedgerAccountName());
 
         processingLogRepo.save(ProcessingLog.create(
                 invoice, ProcessingLog.LogLevel.INFO, "AI_EXTRACTION",
                 "AI data received. Confidence: " + payload.getConfidenceScore()
+                        + ". Ledger: " + payload.getLedgerAccountName()
         ));
 
-        // 2. Run validation pipeline
-        List<String> validationFailures = new ArrayList<>();
+        // 2. Run centralized validation pipeline (PRD §3)
+        UUID clientId = invoice.getClient() != null ? invoice.getClient().getId() : null;
+        ValidationResult result = validationService.validate(payload, clientId);
 
-        // 2a. GSTIN validation
-        if (payload.getSupplierGstin() != null && !payload.getSupplierGstin().isBlank()) {
-            if (!GstinValidator.isValid(payload.getSupplierGstin())) {
-                validationFailures.add("Invalid supplier GSTIN format: " + payload.getSupplierGstin());
-            }
-        }
-        if (payload.getBuyerGstin() != null && !payload.getBuyerGstin().isBlank()) {
-            if (!GstinValidator.isValid(payload.getBuyerGstin())) {
-                validationFailures.add("Invalid buyer GSTIN format: " + payload.getBuyerGstin());
-            }
-        }
-
-        // 2b. Tax math validation (STRICT — no rounding, no corrections)
-        boolean taxMathValid = TaxCalculationValidator.isValid(
-                payload.getBaseAmount(),
-                payload.getCgst(),
-                payload.getSgst(),
-                payload.getIgst(),
-                payload.getTotalAmount()
-        );
-
-        if (!taxMathValid) {
-            BigDecimal mismatch = TaxCalculationValidator.getMismatchAmount(
-                    payload.getBaseAmount(), payload.getCgst(),
-                    payload.getSgst(), payload.getIgst(), payload.getTotalAmount()
-            );
-            validationFailures.add("Tax math mismatch: base + cgst + sgst + igst != total. Diff: " + mismatch);
-        }
-
-        // 2c. Confidence threshold check
-        if (payload.getConfidenceScore() != null && payload.getConfidenceScore() < 85.0) {
-            validationFailures.add("AI confidence below threshold: " + payload.getConfidenceScore() + "% (min: 85%)");
-        }
-
-        // 3. Determine final status
-        if (!validationFailures.isEmpty()) {
-            invoice.setStatus(ProcessingStatus.REQUIRES_MANUAL_REVIEW);
-
-            for (String failure : validationFailures) {
+        // 3. Assign status based on validation result
+        switch (result.status()) {
+            case COMPLETED -> {
+                invoice.setStatus(ProcessingStatus.COMPLETED);
                 processingLogRepo.save(ProcessingLog.create(
-                        invoice, ProcessingLog.LogLevel.WARN, "VALIDATION_FAILED", failure
+                        invoice, ProcessingLog.LogLevel.INFO, "VALIDATION_PASSED",
+                        "All validations passed. Tax math correct. Confidence: "
+                                + payload.getConfidenceScore() + "%"
                 ));
+                System.out.println("✅ [VALIDATION] Invoice " + invoice.getId() + " → COMPLETED");
             }
 
-            System.out.println("⚠️ [VALIDATION] Invoice " + invoice.getId()
-                    + " → REQUIRES_MANUAL_REVIEW (" + validationFailures.size() + " issues)");
-        } else {
-            invoice.setStatus(ProcessingStatus.COMPLETED);
+            case REQUIRES_MANUAL_REVIEW -> {
+                invoice.setStatus(ProcessingStatus.REQUIRES_MANUAL_REVIEW);
+                for (String failure : result.failures()) {
+                    processingLogRepo.save(ProcessingLog.create(
+                            invoice, ProcessingLog.LogLevel.WARN, "VALIDATION_FAILED", failure
+                    ));
+                }
+                System.out.println("⚠️ [VALIDATION] Invoice " + invoice.getId()
+                        + " → REQUIRES_MANUAL_REVIEW (" + result.failures().size() + " issues)");
+            }
 
-            processingLogRepo.save(ProcessingLog.create(
-                    invoice, ProcessingLog.LogLevel.INFO, "VALIDATION_PASSED",
-                    "All validations passed. Tax math correct. Confidence: " + payload.getConfidenceScore() + "%"
-            ));
-
-            System.out.println("✅ [VALIDATION] Invoice " + invoice.getId() + " → COMPLETED");
+            case FAILED -> {
+                invoice.setStatus(ProcessingStatus.FAILED);
+                invoice.setFailureReason(result.failureReason());
+                for (String failure : result.failures()) {
+                    processingLogRepo.save(ProcessingLog.create(
+                            invoice, ProcessingLog.LogLevel.ERROR, "VALIDATION_FAILED", failure
+                    ));
+                }
+                System.out.println("❌ [VALIDATION] Invoice " + invoice.getId()
+                        + " → FAILED. Reason: " + result.failureReason());
+            }
         }
 
         // 4. Persist
@@ -295,7 +285,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         );
     }
 
-    // ── REVIEW QUEUE METHODS ──────────────────────────────────────────
+    // ── REVIEW QUEUE METHODS (PRD §5 — Audit Enforced) ───────────────
 
     @Override
     @Transactional
@@ -307,6 +297,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalStateException("Invoice is not in review status. Current: " + invoice.getStatus());
         }
 
+        invoice.setModifiedAt(LocalDateTime.now());
         invoice.setStatus(ProcessingStatus.COMPLETED);
         Invoice saved = invoiceRepository.save(invoice);
 
@@ -328,6 +319,35 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalStateException("Invoice is not in review status. Current: " + invoice.getStatus());
         }
 
+        // PRD §5.1 & §5.3: Track every field change with audit log
+        UUID modifiedBy = invoice.getModifiedBy();
+        List<InvoiceAuditLog> auditEntries = new ArrayList<>();
+
+        auditEntries.addAll(trackFieldChange(invoice, "invoiceNumber",
+                invoice.getInvoiceNumber(), correctedData.getInvoiceNumber(), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "invoiceDate",
+                String.valueOf(invoice.getInvoiceDate()), String.valueOf(correctedData.getInvoiceDate()), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "supplierName",
+                invoice.getSupplierName(), correctedData.getSupplierName(), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "supplierGstin",
+                invoice.getSupplierGstin(), correctedData.getSupplierGstin(), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "buyerGstin",
+                invoice.getBuyerGstin(), correctedData.getBuyerGstin(), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "hsnSacCode",
+                invoice.getHsnSacCode(), correctedData.getHsnSac(), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "ledgerAccountName",
+                invoice.getLedgerAccountName(), correctedData.getLedgerAccountName(), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "baseTaxableAmount",
+                amountStr(invoice.getBaseTaxableAmount()), amountStr(correctedData.getBaseAmount()), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "cgst",
+                amountStr(invoice.getCgst()), amountStr(correctedData.getCgst()), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "sgst",
+                amountStr(invoice.getSgst()), amountStr(correctedData.getSgst()), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "igst",
+                amountStr(invoice.getIgst()), amountStr(correctedData.getIgst()), modifiedBy));
+        auditEntries.addAll(trackFieldChange(invoice, "totalAmount",
+                amountStr(invoice.getTotalAmount()), amountStr(correctedData.getTotalAmount()), modifiedBy));
+
         // Apply corrections
         if (correctedData.getInvoiceNumber() != null) invoice.setInvoiceNumber(correctedData.getInvoiceNumber());
         if (correctedData.getInvoiceDate() != null) invoice.setInvoiceDate(correctedData.getInvoiceDate());
@@ -335,18 +355,25 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (correctedData.getSupplierGstin() != null) invoice.setSupplierGstin(correctedData.getSupplierGstin());
         if (correctedData.getBuyerGstin() != null) invoice.setBuyerGstin(correctedData.getBuyerGstin());
         if (correctedData.getHsnSac() != null) invoice.setHsnSacCode(correctedData.getHsnSac());
+        if (correctedData.getLedgerAccountName() != null) invoice.setLedgerAccountName(correctedData.getLedgerAccountName());
         if (correctedData.getBaseAmount() != null) invoice.setBaseTaxableAmount(correctedData.getBaseAmount());
         if (correctedData.getCgst() != null) invoice.setCgst(correctedData.getCgst());
         if (correctedData.getSgst() != null) invoice.setSgst(correctedData.getSgst());
         if (correctedData.getIgst() != null) invoice.setIgst(correctedData.getIgst());
         if (correctedData.getTotalAmount() != null) invoice.setTotalAmount(correctedData.getTotalAmount());
 
+        invoice.setModifiedAt(LocalDateTime.now());
         invoice.setStatus(ProcessingStatus.COMPLETED);
+
         Invoice saved = invoiceRepository.save(invoice);
+
+        if (!auditEntries.isEmpty()) {
+            auditLogRepo.saveAll(auditEntries);
+        }
 
         processingLogRepo.save(ProcessingLog.create(
                 saved, ProcessingLog.LogLevel.INFO, "MANUAL_CORRECTED",
-                "Invoice manually corrected and approved by user"
+                "Invoice manually corrected and approved. " + auditEntries.size() + " field(s) changed."
         ));
 
         return saved;
@@ -378,6 +405,20 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     // ── PRIVATE HELPERS ───────────────────────────────────────────────
+
+    private List<InvoiceAuditLog> trackFieldChange(Invoice invoice, String fieldName,
+                                                     String oldValue, String newValue,
+                                                     UUID modifiedBy) {
+        if (newValue == null || newValue.equals(oldValue) || "null".equals(newValue)) {
+            return List.of();
+        }
+        return List.of(InvoiceAuditLog.create(invoice, fieldName, oldValue, newValue,
+                modifiedBy != null ? modifiedBy : UUID.fromString("00000000-0000-0000-0000-000000000000")));
+    }
+
+    private String amountStr(BigDecimal amount) {
+        return amount != null ? amount.toPlainString() : "null";
+    }
 
     private String generateFileHash(MultipartFile file) {
         try {

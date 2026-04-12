@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,8 +28,13 @@ public interface InvoiceRepo extends JpaRepository<Invoice, UUID>, JpaSpecificat
 
     long countByClientIdAndStatus(UUID clientId, Invoice.ProcessingStatus status);
 
-    // Fast boolean check for duplicates within a tenant
+    // Fast boolean check for file-level duplicates within a tenant
     boolean existsByFileHashAndOrganizationId(String fileHash, UUID organizationId);
+
+    // PRD §3.3: Duplicate detection — invoice identity check within a client
+    // Composite key: (supplierGstin + invoiceNumber + invoiceDate + clientId)
+    boolean existsBySupplierGstinAndInvoiceNumberAndInvoiceDateAndClientId(
+            String supplierGstin, String invoiceNumber, LocalDate invoiceDate, UUID clientId);
 
     // Retry query: find failed invoices with retries remaining
     List<Invoice> findByStatusAndRetryCountLessThan(Invoice.ProcessingStatus status, int maxRetries);

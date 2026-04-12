@@ -12,8 +12,8 @@ import java.util.UUID;
 
 /**
  * Generates GST-compliant CSV for ClearTax / Zoho Books import.
- * BLOCKS export if ANY invoice requires manual review.
- * Exact header compliance — no deviations.
+ * PRD §4.1: Partial export — only COMPLETED invoices are exported.
+ * PRD §4.2: Returns exportedCount and skippedCount.
  */
 @Service
 public class CsvExportService {
@@ -21,11 +21,10 @@ public class CsvExportService {
     private final InvoiceRepo invoiceRepo;
     private final ClientRepo clientRepo;
 
-    // ClearTax / Zoho compatible header
     private static final String CSV_HEADER =
             "GSTIN of Supplier,Invoice Number,Invoice Date,Invoice Value," +
             "Place of Supply,Taxable Value,CGST Amount,SGST Amount,IGST Amount," +
-            "HSN/SAC,Buyer GSTIN";
+            "HSN/SAC,Buyer GSTIN,Ledger Account";
 
     public CsvExportService(InvoiceRepo invoiceRepo, ClientRepo clientRepo) {
         this.invoiceRepo = invoiceRepo;
@@ -33,33 +32,31 @@ public class CsvExportService {
     }
 
     /**
-     * Generates a ClearTax/Zoho-compatible GST CSV for all COMPLETED invoices.
-     *
-     * @throws IllegalStateException if any invoice requires manual review
+     * PRD §4.2: Export result with counts.
      */
-    public String generateGstCsv(UUID clientId) {
+    public record ExportResult(String content, int exportedCount, int skippedCount) {}
+
+    /**
+     * Generates a ClearTax/Zoho-compatible GST CSV for all COMPLETED invoices.
+     * PRD §4.1: Partial export — skips non-COMPLETED invoices.
+     */
+    public ExportResult generateGstCsv(UUID clientId) {
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new IllegalArgumentException("Client not found: " + clientId));
 
-        // BLOCK EXPORT if review pending
-        boolean hasUnreviewedInvoices = invoiceRepo.existsByClientIdAndStatus(
-                clientId, Invoice.ProcessingStatus.REQUIRES_MANUAL_REVIEW);
-
-        if (hasUnreviewedInvoices) {
-            long count = invoiceRepo.countByClientIdAndStatus(
-                    clientId, Invoice.ProcessingStatus.REQUIRES_MANUAL_REVIEW);
-            throw new IllegalStateException(
-                    "Export blocked: " + count + " invoice(s) require manual review before export.");
-        }
-
-        List<Invoice> invoices = invoiceRepo.findByClientIdAndStatus(
+        List<Invoice> completedInvoices = invoiceRepo.findByClientIdAndStatus(
                 clientId, Invoice.ProcessingStatus.COMPLETED);
 
-        if (invoices.isEmpty()) {
-            throw new IllegalArgumentException("No completed invoices found for client: " + client.getClientName());
+        long totalForClient = invoiceRepo.findByClientIdOrderByCreatedAtDesc(clientId).size();
+        int skippedCount = (int) (totalForClient - completedInvoices.size());
+
+        if (completedInvoices.isEmpty()) {
+            throw new IllegalArgumentException("No completed invoices found for client: " + client.getClientName()
+                    + ". " + skippedCount + " invoice(s) require review or are still processing.");
         }
 
-        return buildCsv(invoices);
+        String csv = buildCsv(completedInvoices);
+        return new ExportResult(csv, completedInvoices.size(), skippedCount);
     }
 
     private String buildCsv(List<Invoice> invoices) {
@@ -77,7 +74,8 @@ public class CsvExportService {
             csv.append(formatAmount(inv.getSgst())).append(",");
             csv.append(formatAmount(inv.getIgst())).append(",");
             csv.append(escapeCsv(inv.getHsnSacCode())).append(",");
-            csv.append(escapeCsv(inv.getBuyerGstin()));
+            csv.append(escapeCsv(inv.getBuyerGstin())).append(",");
+            csv.append(escapeCsv(inv.getLedgerAccountName()));
             csv.append("\n");
         }
 
@@ -89,9 +87,6 @@ public class CsvExportService {
         return amount.toPlainString();
     }
 
-    /**
-     * Derives the state code from the first 2 digits of GSTIN.
-     */
     private String deriveStateFromGstin(String gstin) {
         if (gstin == null || gstin.length() < 2) return "";
         return gstin.substring(0, 2);

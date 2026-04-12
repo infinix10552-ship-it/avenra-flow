@@ -11,6 +11,8 @@ export default function ReviewQueue() {
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [clientLedgers, setClientLedgers] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({});
   const [actionStatus, setActionStatus] = useState({ type: "idle", message: "" });
@@ -53,7 +55,7 @@ export default function ReviewQueue() {
     }
   };
 
-  const openReview = (invoice) => {
+  const openReview = async (invoice) => {
     setSelectedInvoice(invoice);
     setEditMode(false);
     setEditData({
@@ -63,6 +65,7 @@ export default function ReviewQueue() {
       supplierGstin: invoice.supplierGstin || "",
       buyerGstin: invoice.buyerGstin || "",
       hsnSac: invoice.hsnSacCode || "",
+      ledgerAccountName: invoice.ledgerAccountName || "",
       baseAmount: invoice.baseTaxableAmount || 0,
       cgst: invoice.cgst || 0,
       sgst: invoice.sgst || 0,
@@ -70,6 +73,19 @@ export default function ReviewQueue() {
       totalAmount: invoice.totalAmount || 0,
     });
     setActionStatus({ type: "idle", message: "" });
+    setAuditLogs([]);
+    setClientLedgers([]);
+
+    try {
+      const [auditRes, ledgerRes] = await Promise.all([
+        api.get(`/invoices/${invoice.id}/audit-log`),
+        invoice.clientId ? api.get(`/clients/${invoice.clientId}/ledgers`) : Promise.resolve({ data: { ledgers: [] } })
+      ]);
+      setAuditLogs(auditRes.data.logs || []);
+      setClientLedgers(ledgerRes.data.ledgers || []);
+    } catch (err) {
+      console.error("Failed to load invoice details:", err);
+    }
   };
 
   const getConfidenceBadge = (score) => {
@@ -182,12 +198,20 @@ export default function ReviewQueue() {
 
                   {/* Confidence Banner */}
                   <div className={`p-3 rounded-lg text-sm font-medium ${
-                    (selectedInvoice.aiConfidenceScore || 0) < 85
+                    (selectedInvoice.aiConfidenceScore || 0) < 85 || selectedInvoice.failureReason
                       ? "bg-amber-50 text-amber-800 border border-amber-200"
                       : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                   }`}>
-                    AI Confidence: {selectedInvoice.aiConfidenceScore || "N/A"}%
-                    {(selectedInvoice.aiConfidenceScore || 0) < 85 && " — Below 85% threshold. Manual review required."}
+                    <div className="flex items-center mb-1">
+                      <strong className="mr-2">AI Confidence: {selectedInvoice.aiConfidenceScore || "N/A"}%</strong>
+                      {(selectedInvoice.aiConfidenceScore || 0) < 85 && " — Below 85% threshold."}
+                    </div>
+                    {selectedInvoice.failureReason && (
+                      <div className="flex items-center text-red-700 font-semibold text-xs mt-2 p-2 bg-red-50 rounded border border-red-100">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        Failure Reason: {selectedInvoice.failureReason}
+                      </div>
+                    )}
                   </div>
 
                   {/* Data Fields */}
@@ -199,11 +223,25 @@ export default function ReviewQueue() {
                       { label: "Supplier GSTIN", key: "supplierGstin", highlight: true },
                       { label: "Buyer GSTIN", key: "buyerGstin", highlight: true },
                       { label: "HSN/SAC Code", key: "hsnSac" },
+                      { label: "Ledger Account", key: "ledgerAccountName" },
                     ].map(field => (
                       <div key={field.key}>
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{field.label}</label>
                         {editMode ? (
-                          <Input value={editData[field.key] || ""} onChange={(e) => setEditData(prev => ({ ...prev, [field.key]: e.target.value }))} />
+                          field.key === "ledgerAccountName" && clientLedgers.length > 0 ? (
+                            <select
+                              className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                              value={editData[field.key] || ""}
+                              onChange={(e) => setEditData(prev => ({ ...prev, [field.key]: e.target.value }))}
+                            >
+                              <option value="">-- Select Ledger --</option>
+                              {clientLedgers.map(l => (
+                                <option key={l.id} value={l.ledgerName}>{l.ledgerName}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input value={editData[field.key] || ""} onChange={(e) => setEditData(prev => ({ ...prev, [field.key]: e.target.value }))} />
+                          )
                         ) : (
                           <p className={`text-sm font-medium p-2 rounded ${
                             field.highlight && selectedInvoice[field.key === "hsnSac" ? "hsnSacCode" : field.key] &&
@@ -273,6 +311,30 @@ export default function ReviewQueue() {
                       return null;
                     })()}
                   </div>
+
+                  {/* Audit History Timeline */}
+                  {auditLogs.length > 0 && (
+                    <div className="border-t border-slate-200 pt-4">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center">
+                        <ClipboardCheck className="w-4 h-4 mr-2" /> Audit Trail (Change History)
+                      </h3>
+                      <div className="space-y-3">
+                        {auditLogs.map((log) => (
+                          <div key={log.id} className="relative pl-4 border-l-2 border-slate-200">
+                            <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-avenra-500 border-2 border-white"></div>
+                            <div className="text-xs text-slate-500 mb-0.5">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </div>
+                            <div className="text-sm">
+                              Changed <span className="font-semibold">{log.fieldName}</span> from{" "}
+                              <span className="line-through text-red-500 bg-red-50 px-1 rounded mx-1">{log.oldValue || "empty"}</span>{" "}
+                              to <span className="text-emerald-600 bg-emerald-50 px-1 rounded mx-1 font-medium">{log.newValue || "empty"}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </Motion.div>

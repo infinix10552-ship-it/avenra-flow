@@ -9,6 +9,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "clients", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"organization_id", "client_gstin", "financial_year"})
@@ -40,4 +43,11 @@ public class Client extends Base {
     @Pattern(regexp = "^\\d{4}-\\d{2}$", message = "Financial year must be in format YYYY-YY (e.g., 2025-26)")
     @Column(name = "financial_year", nullable = false, length = 7)
     private String financialYear;
+
+    // ── CHART OF ACCOUNTS (PRD §2.2 & §6.2) ──────────────────────────
+    // Persisted per client. AI must select EXACT match from this list.
+    // If no match → ledgerAccountName = null → REQUIRES_MANUAL_REVIEW.
+
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<ClientLedger> clientLedgers = new ArrayList<>();
 }

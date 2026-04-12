@@ -8,13 +8,26 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
-@Table(name = "invoices", indexes = {
-        @Index(name = "idx_invoice_client", columnList = "client_id"),
-        @Index(name = "idx_invoice_org", columnList = "organization_id"),
-        @Index(name = "idx_invoice_status", columnList = "status")
-})
+@Table(name = "invoices",
+        indexes = {
+                @Index(name = "idx_invoice_client", columnList = "client_id"),
+                @Index(name = "idx_invoice_org", columnList = "organization_id"),
+                @Index(name = "idx_invoice_status", columnList = "status"),
+                @Index(name = "idx_invoice_duplicate_check",
+                        columnList = "supplier_gstin, invoice_number, invoice_date, client_id")
+        },
+        uniqueConstraints = {
+                // PRD §3.3: Duplicate Detection — unique invoice identity per client
+                @UniqueConstraint(
+                        name = "uk_invoice_identity",
+                        columnNames = {"supplier_gstin", "invoice_number", "invoice_date", "client_id"}
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -100,11 +113,35 @@ public class Invoice extends Base {
     @Column(name = "retry_count", nullable = false)
     private int retryCount = 0;
 
+    // PRD §3.3: Store reason for FAILED status (e.g., DUPLICATE_INVOICE)
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
+
+    // ── AUDIT FIELDS (PRD §5.1 — Maker-Checker System) ───────────────
+
+    // UUID of the user who last manually modified this invoice
+    @Column(name = "modified_by")
+    private UUID modifiedBy;
+
+    // Timestamp of the last manual modification (NOT auto-managed by Hibernate)
+    @Column(name = "modified_at")
+    private LocalDateTime modifiedAt;
+
+    // ── STATE MACHINE (PRD §1.2) ──────────────────────────────────────
+    //
+    // PENDING → PROCESSING                  (RabbitMQ pickup)
+    // PROCESSING → COMPLETED                (all validations pass)
+    // PROCESSING → REQUIRES_MANUAL_REVIEW   (validation failure)
+    // PROCESSING → FAILED                   (crash or duplicate)
+    // REQUIRES_MANUAL_REVIEW → COMPLETED    (after manual approval)
+    //
+    // HARD RULE: Only COMPLETED invoices are exportable.
+
     public enum ProcessingStatus {
         PENDING,                 // Uploaded, waiting for RabbitMQ pickup
         PROCESSING,              // AI worker is extracting data
         COMPLETED,               // Extraction + validation passed
-        REQUIRES_MANUAL_REVIEW,  // Validation failed (math mismatch, low confidence)
-        FAILED                   // Processing crashed (corrupt file, AI error)
+        REQUIRES_MANUAL_REVIEW,  // Validation failed (math mismatch, low confidence, missing ledger, invalid GSTIN)
+        FAILED                   // Processing crashed (corrupt file, AI error, duplicate invoice)
     }
 }

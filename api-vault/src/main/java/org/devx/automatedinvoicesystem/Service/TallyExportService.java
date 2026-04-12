@@ -11,8 +11,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Generates valid Tally XML Voucher documents from approved invoices.
- * BLOCKS export if ANY invoice for the client has REQUIRES_MANUAL_REVIEW status.
+ * Generates valid Tally XML Voucher documents from COMPLETED invoices.
+ * PRD §4.1: Partial export allowed — only COMPLETED invoices are exported.
+ * PRD §4.4: If XML generation fails → entire export fails (no partial file corruption).
  */
 @Service
 public class TallyExportService {
@@ -26,34 +27,42 @@ public class TallyExportService {
     }
 
     /**
-     * Generates Tally-compatible XML for all COMPLETED invoices of a client.
-     *
-     * @throws IllegalStateException if any invoice requires manual review
+     * PRD §4.2: Export result with counts.
      */
-    public String generateTallyXml(UUID clientId) {
+    public record ExportResult(String content, int exportedCount, int skippedCount) {}
+
+    /**
+     * Generates Tally-compatible XML for all COMPLETED invoices of a client.
+     * PRD §4.1: Partial export — only COMPLETED invoices, skip others.
+     * PRD §4.2: Returns exportedCount and skippedCount.
+     */
+    public ExportResult generateTallyXml(UUID clientId) {
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new IllegalArgumentException("Client not found: " + clientId));
 
-        // BLOCK EXPORT if any invoices need review
-        boolean hasUnreviewedInvoices = invoiceRepo.existsByClientIdAndStatus(
-                clientId, Invoice.ProcessingStatus.REQUIRES_MANUAL_REVIEW);
-
-        if (hasUnreviewedInvoices) {
-            long count = invoiceRepo.countByClientIdAndStatus(
-                    clientId, Invoice.ProcessingStatus.REQUIRES_MANUAL_REVIEW);
-            throw new IllegalStateException(
-                    "Export blocked: " + count + " invoice(s) require manual review before export. "
-                            + "Review and approve all flagged invoices first.");
-        }
-
-        List<Invoice> invoices = invoiceRepo.findByClientIdAndStatus(
+        // PRD §4.1: Export ONLY COMPLETED invoices
+        List<Invoice> completedInvoices = invoiceRepo.findByClientIdAndStatus(
                 clientId, Invoice.ProcessingStatus.COMPLETED);
 
-        if (invoices.isEmpty()) {
-            throw new IllegalArgumentException("No completed invoices found for client: " + client.getClientName());
+        // Count skipped (non-COMPLETED)
+        long totalForClient = invoiceRepo.findByClientIdOrderByCreatedAtDesc(clientId).size();
+        int skippedCount = (int) (totalForClient - completedInvoices.size());
+
+        if (completedInvoices.isEmpty()) {
+            throw new IllegalArgumentException("No completed invoices found for client: " + client.getClientName()
+                    + ". " + skippedCount + " invoice(s) require review or are still processing.");
         }
 
-        return buildTallyXml(invoices, client);
+        // PRD §4.4: If XML generation fails → entire export fails
+        String xml;
+        try {
+            xml = buildTallyXml(completedInvoices, client);
+        } catch (Exception e) {
+            throw new RuntimeException("Tally XML generation failed. Entire export aborted to prevent partial file corruption: "
+                    + e.getMessage(), e);
+        }
+
+        return new ExportResult(xml, completedInvoices.size(), skippedCount);
     }
 
     private String buildTallyXml(List<Invoice> invoices, Client client) {
@@ -156,7 +165,6 @@ public class TallyExportService {
 
     private String formatTallyDate(Invoice inv) {
         if (inv.getInvoiceDate() == null) return "";
-        // Tally expects YYYYMMDD format
         return inv.getInvoiceDate().toString().replace("-", "");
     }
 

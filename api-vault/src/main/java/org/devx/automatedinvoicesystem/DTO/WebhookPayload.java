@@ -38,6 +38,9 @@ public class WebhookPayload {
     private BigDecimal igst;
     private BigDecimal totalAmount;
 
+    // ── LEDGER MAPPING (PRD §2.1 — must be exact match from clientLedgers or null)
+    private String ledgerAccountName;
+
     // ── AI METADATA ───────────────────────────────────────────────────
     private Double confidenceScore;
 }

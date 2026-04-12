@@ -55,7 +55,7 @@ def validate_gstin(gstin):
 REQUIRED_FIELDS = [
     "invoiceNumber", "invoiceDate", "supplierName", "supplierGstin",
     "buyerGstin", "hsnSac", "baseAmount", "cgst", "sgst", "igst",
-    "totalAmount", "confidenceScore"
+    "totalAmount", "ledgerAccountName", "confidenceScore"
 ]
 
 def validate_ai_output(data):
@@ -76,14 +76,15 @@ FIELD_WEIGHTS = {
     "invoiceNumber": 8,
     "invoiceDate": 8,
     "supplierName": 10,
-    "supplierGstin": 15,
-    "buyerGstin": 15,
+    "supplierGstin": 12,
+    "buyerGstin": 12,
     "hsnSac": 5,
-    "baseAmount": 12,
+    "baseAmount": 10,
     "cgst": 7,
     "sgst": 7,
     "igst": 5,
-    "totalAmount": 12,
+    "totalAmount": 10,
+    "ledgerAccountName": 6,
 }
 
 def compute_field_confidence(field_name, value):
@@ -166,13 +167,29 @@ def extract_text_from_file(file_path):
 
 # ── AI EXTRACTION (GST-COMPLIANT) ─────────────────────────────────
 
-def parse_invoice_data(raw_text):
+def parse_invoice_data(raw_text, client_ledgers=None):
     """
     Sends OCR text to Groq LLM for structured GST extraction.
-    Returns EXACTLY 12 fields or raises an error.
+    Returns EXACTLY 13 fields or raises an error.
     No fallbacks. No defaults. No silent corrections.
+
+    PRD §2.1: AI must receive clientLedgers and select EXACT match.
+    PRD §2.2: If no match → return null for ledgerAccountName.
     """
     print("[*] Engaging Groq Cloud for GST-compliant extraction...")
+
+    # Build ledger mapping instruction
+    ledger_instruction = ""
+    if client_ledgers and len(client_ledgers) > 0:
+        ledger_list = json.dumps(client_ledgers)
+        ledger_instruction = f"""
+    7. For ledgerAccountName, you MUST select an EXACT match from this allowed list:
+       {ledger_list}
+       If NONE of these match the invoice's expense category, set ledgerAccountName to null.
+       DO NOT invent or create new categories. EXACT MATCH ONLY."""
+    else:
+        ledger_instruction = """
+    7. No Chart of Accounts provided. Set ledgerAccountName to null."""
 
     prompt = f"""
     You are a CA-grade GST data extraction engine for Indian invoices.
@@ -180,12 +197,13 @@ def parse_invoice_data(raw_text):
     Read the following OCR text from a financial invoice and extract ALL fields below.
     
     STRICT RULES:
-    1. Output ONLY a valid JSON object with EXACTLY these 12 keys.
+    1. Output ONLY a valid JSON object with EXACTLY these 13 keys.
     2. If a field cannot be found, set its value to null — DO NOT guess.
     3. All monetary values MUST be pure numbers (no commas, no currency symbols).
     4. GSTIN MUST be exactly 15 characters in the format: 2 digits + 5 uppercase + 4 digits + 1 uppercase + 1 alphanumeric + Z + 1 alphanumeric.
     5. invoiceDate MUST be in YYYY-MM-DD format.
     6. confidenceScore is YOUR self-assessment (0-100) of extraction accuracy.
+    {ledger_instruction}
     
     REQUIRED JSON SCHEMA:
     {{
@@ -200,6 +218,7 @@ def parse_invoice_data(raw_text):
         "sgst": number or null,
         "igst": number or null,
         "totalAmount": number or null,
+        "ledgerAccountName": "string from allowed list or null",
         "confidenceScore": number (0-100)
     }}
     
@@ -244,6 +263,12 @@ def parse_invoice_data(raw_text):
             except (InvalidOperation, ValueError):
                 structured_data[numeric_field] = None
 
+    # PRD §2.2: Backend enforcement — if AI returned a ledger not in the allowed list, force null
+    if client_ledgers and structured_data.get("ledgerAccountName"):
+        if structured_data["ledgerAccountName"] not in client_ledgers:
+            print(f"[⚠️] AI returned ledger '{structured_data['ledgerAccountName']}' not in allowed list. Forcing null.")
+            structured_data["ledgerAccountName"] = None
+
     # Compute per-field weighted confidence (override AI self-assessment)
     computed_confidence = compute_global_confidence(structured_data)
     structured_data["confidenceScore"] = computed_confidence
@@ -275,8 +300,11 @@ def process_invoice(ch, method, properties, body):
         file_url = message.get('fileUrl')
         organization_id = message.get('organizationId')
         client_id = message.get('clientId')
+        client_ledgers = message.get('clientLedgers', [])  # PRD §2.1: Chart of Accounts
 
         print(f"\n[🚀] NEW JOB — Invoice: {invoice_id}")
+        if client_ledgers:
+            print(f"[📋] Client ledgers loaded: {len(client_ledgers)} entries")
 
         ext = os.path.splitext(file_url)[1]
         fd, temp_path = tempfile.mkstemp(suffix=ext)
@@ -291,9 +319,10 @@ def process_invoice(ch, method, properties, body):
             raw_text = extract_text_from_file(temp_path)
             print(f"[✅] OCR complete: {len(raw_text)} chars extracted")
 
-            # Step 3: AI Extraction (strict schema)
-            structured_data = parse_invoice_data(raw_text)
+            # Step 3: AI Extraction (strict schema + ledger mapping)
+            structured_data = parse_invoice_data(raw_text, client_ledgers)
             print(f"[✅] AI extraction complete. Confidence: {structured_data.get('confidenceScore')}%")
+            print(f"[📋] Ledger mapped: {structured_data.get('ledgerAccountName')}")
 
             # Step 4: Build webhook payload (EXACT match to Java DTO)
             webhook_payload = {
@@ -311,6 +340,7 @@ def process_invoice(ch, method, properties, body):
                 "sgst": structured_data.get("sgst"),
                 "igst": structured_data.get("igst"),
                 "totalAmount": structured_data.get("totalAmount"),
+                "ledgerAccountName": structured_data.get("ledgerAccountName"),
                 "confidenceScore": structured_data.get("confidenceScore"),
             }
 

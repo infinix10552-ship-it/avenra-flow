@@ -14,6 +14,9 @@ import java.util.List;
 /**
  * Scheduled job that re-queues FAILED invoices for retry.
  * Maximum 3 retries per invoice.
+ *
+ * PRD §3.3: Invoices with failureReason = DUPLICATE_INVOICE are NEVER retried
+ * (they are permanent failures — retrying would produce the same result).
  */
 @Service
 public class InvoiceRetryService {
@@ -35,6 +38,8 @@ public class InvoiceRetryService {
     /**
      * Runs every 5 minutes. Finds FAILED invoices with retries < MAX_RETRIES
      * and re-queues them to RabbitMQ.
+     *
+     * Skips invoices with permanent failure reasons (e.g., DUPLICATE_INVOICE).
      */
     @Scheduled(fixedDelay = 300000) // 5 minutes
     @Transactional
@@ -46,11 +51,19 @@ public class InvoiceRetryService {
             return;
         }
 
-        System.out.println("[RETRY] Found " + failedInvoices.size() + " failed invoices to retry.");
+        System.out.println("[RETRY] Found " + failedInvoices.size() + " failed invoices to evaluate.");
 
         for (Invoice invoice : failedInvoices) {
+            // PRD §3.3: NEVER retry permanent failures
+            if ("DUPLICATE_INVOICE".equals(invoice.getFailureReason())) {
+                System.out.println("[RETRY] Skipping invoice " + invoice.getId()
+                        + " — permanent failure: " + invoice.getFailureReason());
+                continue;
+            }
+
             invoice.setRetryCount(invoice.getRetryCount() + 1);
             invoice.setStatus(Invoice.ProcessingStatus.PENDING);
+            invoice.setFailureReason(null); // Clear for retry
             invoiceRepo.save(invoice);
 
             processingLogRepo.save(ProcessingLog.create(

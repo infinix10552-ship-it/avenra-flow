@@ -5,7 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card"
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Badge } from "../components/ui/Badge";
-import { Users, Plus, Building2, Hash, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Users, Plus, Building2, Calendar, AlertCircle, CheckCircle2, List } from "lucide-react";
+import LedgerModal from "../components/shared/LedgerModal";
 
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
@@ -17,6 +18,7 @@ export default function ClientsPage() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [gstinValid, setGstinValid] = useState(null);
+  const [selectedClientForLedger, setSelectedClientForLedger] = useState(null);
 
   useEffect(() => {
     fetchClients();
@@ -136,6 +138,7 @@ export default function ClientsPage() {
                   <th className="px-6 py-4 font-semibold">GSTIN</th>
                   <th className="px-6 py-4 font-semibold">Financial Year</th>
                   <th className="px-6 py-4 font-semibold">Created</th>
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -163,6 +166,11 @@ export default function ClientsPage() {
                       <td className="px-6 py-4"><Badge variant="default" className="font-mono text-xs">{client.clientGstin}</Badge></td>
                       <td className="px-6 py-4 text-slate-600"><Calendar className="w-3.5 h-3.5 inline mr-1.5 text-slate-400"/>{client.financialYear}</td>
                       <td className="px-6 py-4 text-slate-500 text-xs">{new Date(client.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-right">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedClientForLedger(client)}>
+                          <List className="w-3 h-3 mr-1" /> Ledgers
+                        </Button>
+                      </td>
                     </Motion.tr>
                   ))
                 )}
@@ -171,6 +179,12 @@ export default function ClientsPage() {
           </div>
         </Card>
       </Motion.div>
+
+      <LedgerModal 
+        isOpen={!!selectedClientForLedger} 
+        onClose={() => setSelectedClientForLedger(null)} 
+        client={selectedClientForLedger} 
+      />
     </div>
   );
 }
