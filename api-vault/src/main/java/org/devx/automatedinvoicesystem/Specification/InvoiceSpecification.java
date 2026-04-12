@@ -33,6 +33,13 @@ public class InvoiceSpecification {
                 ));
             }
 
+            if (filter.getLedgerAccountName() != null && !filter.getLedgerAccountName().trim().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("ledgerAccountName")),
+                        "%" + filter.getLedgerAccountName().toLowerCase() + "%"
+                ));
+            }
+
             if (filter.getStatus() != null && !filter.getStatus().trim().isEmpty()) {
                 predicates.add(criteriaBuilder.equal(
                         root.get("status"), Invoice.ProcessingStatus.valueOf(filter.getStatus())));

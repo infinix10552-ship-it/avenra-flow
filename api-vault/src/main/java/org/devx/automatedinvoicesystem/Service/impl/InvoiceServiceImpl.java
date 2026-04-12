@@ -418,6 +418,65 @@ public class InvoiceServiceImpl implements InvoiceService {
         );
     }
 
+    @Override
+    public Map<String, Object> getDashboardAnalytics(UUID organizationId) {
+        long totalInvoices = invoiceRepository.countByOrganizationId(organizationId);
+        long completed = invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.COMPLETED);
+        long pending = invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.PENDING) +
+                       invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.PROCESSING);
+        long needsReview = invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.REQUIRES_MANUAL_REVIEW);
+        long failed = invoiceRepository.countByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.FAILED);
+
+        BigDecimal totalBilling = invoiceRepository.sumTotalAmountByOrganizationId(organizationId);
+        BigDecimal totalTax = invoiceRepository.sumTotalTaxByOrganizationId(organizationId);
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalInvoices", totalInvoices);
+        stats.put("completed", completed);
+        stats.put("pending", pending);
+        stats.put("needsReview", needsReview);
+        stats.put("failed", failed);
+        stats.put("totalBilling", totalBilling != null ? totalBilling : BigDecimal.ZERO);
+        stats.put("totalTax", totalTax != null ? totalTax : BigDecimal.ZERO);
+
+        return stats;
+    }
+
+    @Override
+    public byte[] generateCsvExport(UUID organizationId) {
+        List<Invoice> completedInvoices = invoiceRepository.findByOrganizationIdAndStatus(organizationId, Invoice.ProcessingStatus.COMPLETED);
+        
+        StringBuilder csv = new StringBuilder();
+        csv.append("Invoice Date,Invoice Number,Supplier Name,Supplier GSTIN,Buyer GSTIN,HSN/SAC,Base Amount,CGST,SGST,IGST,Total Amount,Ledger Account\n");
+        
+        for (Invoice inv : completedInvoices) {
+            csv.append(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+                inv.getInvoiceDate(),
+                escapeCsv(inv.getInvoiceNumber()),
+                escapeCsv(inv.getSupplierName()),
+                inv.getSupplierGstin(),
+                inv.getBuyerGstin(),
+                escapeCsv(inv.getHsnSacCode()),
+                inv.getBaseTaxableAmount(),
+                inv.getCgst(),
+                inv.getSgst(),
+                inv.getIgst(),
+                inv.getTotalAmount(),
+                escapeCsv(inv.getLedgerAccountName())
+            ));
+        }
+        
+        return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
     // ── PRIVATE HELPERS ───────────────────────────────────────────────
 
     private List<InvoiceAuditLog> trackFieldChange(Invoice invoice, String fieldName,

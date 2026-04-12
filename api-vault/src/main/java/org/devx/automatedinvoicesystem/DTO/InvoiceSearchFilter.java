@@ -16,6 +16,7 @@ public class InvoiceSearchFilter {
 
     // Optional user filters
     private String supplierName;
+    private String ledgerAccountName;
     private String status;
     private LocalDate startDate;
     private LocalDate endDate;

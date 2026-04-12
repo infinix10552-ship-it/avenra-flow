@@ -44,12 +44,18 @@ export default function InvoiceDetails() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, failureReason) => {
     switch (status) {
       case "COMPLETED": return <Badge variant="success">Completed</Badge>;
       case "PROCESSING": return <Badge variant="warning">AI Processing</Badge>;
       case "PENDING": return <Badge variant="default">Pending</Badge>;
-      case "FAILED": return <Badge variant="error">Failed</Badge>;
+      case "REQUIRES_MANUAL_REVIEW": return <Badge variant="destructive">Needs Review</Badge>;
+      case "FAILED": return (
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant="destructive">Failed</Badge>
+          {failureReason && <span className="text-[10px] text-red-500 font-medium whitespace-nowrap">({failureReason})</span>}
+        </div>
+      );
       default: return <Badge variant="default">{status}</Badge>;
     }
   };
@@ -93,7 +99,7 @@ export default function InvoiceDetails() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          {getStatusBadge(invoice.status)}
+          {getStatusBadge(invoice.status, invoice.failureReason)}
           {invoice.s3FileUrl && (
             <Button variant="outline" onClick={() => window.open(invoice.s3FileUrl, '_blank')} className="shadow-sm hover:shadow-md transition-shadow">
               <Download className="w-4 h-4 mr-2" /> Original File

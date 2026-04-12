@@ -36,6 +36,17 @@ public interface InvoiceRepo extends JpaRepository<Invoice, UUID>, JpaSpecificat
     boolean existsBySupplierGstinAndInvoiceNumberAndInvoiceDateAndClientId(
             String supplierGstin, String invoiceNumber, LocalDate invoiceDate, UUID clientId);
 
+    // Aggregation queries for Analytics (Commercial Readiness)
+    long countByOrganizationId(UUID organizationId);
+    
+    long countByOrganizationIdAndStatus(UUID organizationId, Invoice.ProcessingStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(i.totalAmount) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 'COMPLETED'")
+    java.math.BigDecimal sumTotalAmountByOrganizationId(UUID orgId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(i.cgst + i.sgst + i.igst) FROM Invoice i WHERE i.organization.id = :orgId AND i.status = 'COMPLETED'")
+    java.math.BigDecimal sumTotalTaxByOrganizationId(UUID orgId);
+
     // Retry query: find failed invoices with retries remaining
     List<Invoice> findByStatusAndRetryCountLessThan(Invoice.ProcessingStatus status, int maxRetries);
 }

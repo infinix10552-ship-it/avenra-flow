@@ -9,7 +9,7 @@ export default function FilterBar({ onFilterChange }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState({
     supplierName: "",
-    category: "",
+    ledgerAccountName: "",
     status: "",
     startDate: "",
     endDate: "",
@@ -23,7 +23,7 @@ export default function FilterBar({ onFilterChange }) {
   };
 
   const clearFilters = () => {
-    const reset = { supplierName: "", category: "", status: "", startDate: "", endDate: "" };
+    const reset = { supplierName: "", ledgerAccountName: "", status: "", startDate: "", endDate: "" };
     setFilters(reset);
     onFilterChange(reset);
   };
@@ -92,15 +92,12 @@ export default function FilterBar({ onFilterChange }) {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.1 }}
               >
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 px-1">Category</label>
-                <Select value={filters.category} onChange={(e) => handleChange("category", e.target.value)}>
-                  <option value="">All Categories</option>
-                  <option value="SOFTWARE">Software & SaaS</option>
-                  <option value="HARDWARE">Hardware & IT</option>
-                  <option value="TRAVEL">Travel & Logistics</option>
-                  <option value="OFFICE_SUPPLIES">Office Supplies</option>
-                  <option value="SERVICES">Professional Services</option>
-                </Select>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 px-1">Ledger Account</label>
+                <Input 
+                  placeholder="e.g. Software Expense" 
+                  value={filters.ledgerAccountName}
+                  onChange={(e) => handleChange("ledgerAccountName", e.target.value)}
+                />
               </Motion.div>
 
               <Motion.div 

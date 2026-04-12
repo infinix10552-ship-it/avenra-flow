@@ -25,6 +25,10 @@ public interface InvoiceService {
 
     void deleteInvoiceById(UUID invoiceId, UUID organizationId);
 
+    Map<String, Object> getDashboardAnalytics(UUID organizationId);
+
+    byte[] generateCsvExport(UUID organizationId);
+
     Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId);
 
     Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId, UUID clientId);

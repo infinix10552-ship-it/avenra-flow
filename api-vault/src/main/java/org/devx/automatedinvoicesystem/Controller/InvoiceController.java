@@ -130,6 +130,7 @@ public class InvoiceController {
             @RequestHeader("X-Organization-Id") UUID organizationId,
             @RequestParam(required = false) UUID clientId,
             @RequestParam(required = false) String supplierName,
+            @RequestParam(required = false) String ledgerAccountName,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate
@@ -138,11 +139,32 @@ public class InvoiceController {
         filter.setOrganizationId(organizationId);
         filter.setClientId(clientId);
         filter.setSupplierName(supplierName);
+        filter.setLedgerAccountName(ledgerAccountName);
         filter.setStatus(status);
         filter.setStartDate(startDate);
         filter.setEndDate(endDate);
 
         return ResponseEntity.ok(invoiceService.searchInvoices(filter));
+    }
+
+    @GetMapping("/analytics")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
+    public ResponseEntity<Map<String, Object>> getDashboardAnalytics(
+            @RequestHeader("X-Organization-Id") UUID organizationId) {
+        return ResponseEntity.ok(invoiceService.getDashboardAnalytics(organizationId));
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
+    public ResponseEntity<byte[]> exportInvoices(
+            @RequestHeader("X-Organization-Id") UUID organizationId) {
+        byte[] csvData = invoiceService.generateCsvExport(organizationId);
+        String filename = "avenra_export_" + java.time.LocalDate.now() + ".csv";
+        
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
+                .body(csvData);
     }
 
     // ── REVIEW QUEUE ENDPOINTS ────────────────────────────────────────

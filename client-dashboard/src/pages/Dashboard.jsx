@@ -21,30 +21,50 @@ const itemVariants = {
 
 export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
+  const [stats, setStats] = useState({
+    totalInvoices: 0,
+    completed: 0,
+    pending: 0,
+    needsReview: 0,
+    failed: 0,
+    totalBilling: 0,
+    totalTax: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [toastConfig, setToastConfig] = useState({ isVisible: false, message: "" });
-  const [exportLoading, setExportLoading] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
   const navigate = useNavigate();
 
   const fetchInvoices = useCallback(async (filters = {}) => {
-    if (invoices.length === 0) setIsLoading(true); 
     try {
       const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== ""));
       const response = await api.get("/invoices/search", { params });
       setInvoices(response.data);
     } catch (error) {
       console.error("Failed to fetch ledger data:", error);
-    } finally {
-      setIsLoading(false);
     }
-  }, [invoices.length]);
+  }, []);
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const response = await api.get("/invoices/analytics");
+      setStats(response.data);
+    } catch (error) {
+      console.error("Failed to fetch analytics:", error);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchInvoices();
-    const handleUpdate = () => fetchInvoices();
+    setIsLoading(true);
+    Promise.all([fetchInvoices(), fetchAnalytics()]).finally(() => setIsLoading(false));
+    
+    const handleUpdate = () => {
+      fetchInvoices();
+      fetchAnalytics();
+    };
     window.addEventListener('invoice-updated', handleUpdate);
     return () => window.removeEventListener('invoice-updated', handleUpdate);
-  }, [fetchInvoices]);
+  }, [fetchInvoices, fetchAnalytics]);
 
   const totalVolume = invoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0);
   const pendingCount = invoices.filter(i => i.status === "PENDING" || i.status === "PROCESSING").length;
@@ -64,25 +84,24 @@ export default function Dashboard() {
     }
   };
 
-  const handleExportCSV = () => {
-    if (invoices.length === 0) return;
-    const headers = ["Invoice Number", "Supplier Name", "Supplier GSTIN", "Date", "HSN/SAC", "Base Amount", "CGST", "SGST", "IGST", "Total", "Status", "Confidence"];
-    const csvRows = invoices.map(inv => [
-      inv.invoiceNumber || "", `"${inv.supplierName || inv.originalFileName || ""}"`,
-      inv.supplierGstin || "", inv.invoiceDate || "",
-      inv.hsnSacCode || "", inv.baseTaxableAmount || 0,
-      inv.cgst || 0, inv.sgst || 0, inv.igst || 0,
-      inv.totalAmount || 0, inv.status, inv.aiConfidenceScore || ""
-    ].join(","));
-    const csvContent = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `avenra_gst_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportCSV = async () => {
+    try {
+      setExportLoading(true);
+      const response = await api.get("/invoices/export", { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `avenra_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setToastConfig({ isVisible: true, message: "Ledger exported successfully for GST filing." });
+    } catch (error) {
+      console.error("Export failed:", error);
+      setToastConfig({ isVisible: true, message: "Failed to generate export. Please check permissions." });
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   return (
@@ -95,26 +114,26 @@ export default function Dashboard() {
           <p className="text-slate-500 mt-1 text-sm">Real-time overview of invoice processing and GST compliance.</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="w-4 h-4 mr-2"/> Export CSV
+          <Button variant="outline" onClick={handleExportCSV} disabled={exportLoading}>
+            <Download className="w-4 h-4 mr-2"/> {exportLoading ? "Generating..." : "Export to Tally"}
           </Button>
-          <Button onClick={() => fetchInvoices()}>Refresh</Button>
+          <Button onClick={() => { fetchInvoices(); fetchAnalytics(); }}>Refresh</Button>
         </div>
       </Motion.div>
 
       {/* TELEMETRY DECK — 4 cards */}
       <Motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
-        <Motion.div variants={itemVariants}>
+               <Motion.div variants={itemVariants}>
           <Card className="hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 border-slate-200/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Total Volume</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-500">Total Revenue Vault</CardTitle>
               <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-avenra-500" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{formatCurrency(totalVolume)}</div>
+              <div className="text-2xl font-bold text-slate-900">{formatCurrency(stats.totalBilling)}</div>
+              <p className="text-[10px] text-slate-400 mt-1">Tax Component: {formatCurrency(stats.totalTax)}</p>
             </CardContent>
           </Card>
         </Motion.div>
@@ -122,13 +141,13 @@ export default function Dashboard() {
         <Motion.div variants={itemVariants}>
           <Card className="hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 border-slate-200/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-500">Queue Processing</CardTitle>
               <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
                 <Clock className="h-4 w-4 text-amber-500" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{pendingCount} <span className="text-sm font-normal text-slate-500">docs</span></div>
+              <div className="text-2xl font-bold text-slate-900">{stats.pending} <span className="text-sm font-normal text-slate-500">active</span></div>
             </CardContent>
           </Card>
         </Motion.div>
@@ -136,30 +155,30 @@ export default function Dashboard() {
         <Motion.div variants={itemVariants}>
           <Card className="hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 border-slate-200/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Completed</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-500">Completed Records</CardTitle>
               <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{completedCount} <span className="text-sm font-normal text-slate-500">docs</span></div>
+              <div className="text-2xl font-bold text-slate-900">{stats.completed} <span className="text-sm font-normal text-slate-500">safeguarded</span></div>
             </CardContent>
           </Card>
         </Motion.div>
 
         <Motion.div variants={itemVariants}>
-          <Card className={`hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 ${reviewCount > 0 ? "border-amber-300 bg-amber-50/30" : "border-slate-200/60"}`}>
+          <Card className={`hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 ${stats.needsReview > 0 ? "border-amber-300 bg-amber-50/30" : "border-slate-200/60"}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Needs Review</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-500">Manual Interventions</CardTitle>
               <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
                 <ClipboardCheck className="h-4 w-4 text-amber-500" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{reviewCount} <span className="text-sm font-normal text-slate-500">docs</span></div>
-              {reviewCount > 0 && (
+              <div className="text-2xl font-bold text-slate-900">{stats.needsReview} <span className="text-sm font-normal text-slate-500">blocked</span></div>
+              {stats.needsReview > 0 && (
                 <button onClick={() => navigate("/review-queue")} className="text-xs text-amber-600 hover:text-amber-700 font-medium mt-1 cursor-pointer">
-                  Review now →
+                  Correct errors now →
                 </button>
               )}
             </CardContent>

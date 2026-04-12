@@ -39,23 +39,54 @@ export default function AllInvoices() {
     }
   };
 
+  const handleExportCSV = async () => {
+    try {
+      const response = await api.get("/invoices/export", { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `avenra_master_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      alert("Failed to generate export file. Verify network connectivity.");
+    }
+  };
+
   const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, failureReason) => {
     switch (status) {
       case "COMPLETED": return <Badge variant="success">Completed</Badge>;
       case "PROCESSING": return <Badge variant="warning">Processing</Badge>;
       case "PENDING": return <Badge variant="default">Pending</Badge>;
-      case "FAILED": return <Badge variant="error">Failed</Badge>;
+      case "FAILED": return (
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant="destructive">Failed</Badge>
+          {failureReason && <span className="text-[10px] text-red-500 font-medium">({failureReason})</span>}
+        </div>
+      );
       default: return <Badge variant="default">{status}</Badge>;
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <Motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Invoice Master Ledger</h1>
-        <p className="text-slate-500 mt-1 text-sm">Complete history of all processed documents across your workspace.</p>
+      <Motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Invoice Master Ledger</h1>
+          <p className="text-slate-500 mt-1 text-sm">Complete history of all processed documents across your workspace.</p>
+        </div>
+        <button 
+          onClick={handleExportCSV}
+          className="flex items-center px-4 py-2 bg-avenra-600 text-white rounded-lg hover:bg-avenra-700 transition-all shadow-md hover:shadow-lg active:scale-95 font-semibold text-sm"
+        >
+          <div className="mr-2 p-1 bg-white/20 rounded-md">
+            <Eye className="w-4 h-4" /> 
+          </div>
+          Export to Tally (GSTR-2A)
+        </button>
       </Motion.div>
 
       <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
@@ -97,7 +128,7 @@ export default function AllInvoices() {
                       <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{invoice.supplierName || invoice.originalFileName}</td>
                       <td className="px-6 py-4 text-slate-600">{invoice.ledgerAccountName || "---"}</td>
                       <td className="px-6 py-4 text-slate-600">{invoice.invoiceDate || "---"}</td>
-                      <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
+                      <td className="px-6 py-4">{getStatusBadge(invoice.status, invoice.failureReason)}</td>
                       <td className="px-6 py-4 font-semibold text-right text-slate-900">{invoice.totalAmount ? formatCurrency(invoice.totalAmount) : "---"}</td>
                   <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center space-x-2">
