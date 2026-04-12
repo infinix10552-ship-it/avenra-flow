@@ -145,7 +145,7 @@ export default function InvoiceDetails() {
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                     <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Tax Amount</p>
-                    <p className="text-base font-bold text-slate-800">{invoice.taxAmount ? formatCurrency(invoice.taxAmount) : "---"}</p>
+                    <p className="text-base font-bold text-slate-800">{formatCurrency((Number(invoice.cgst) || 0) + (Number(invoice.sgst) || 0) + (Number(invoice.igst) || 0))}</p>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                     <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Currency</p>
@@ -165,8 +165,8 @@ export default function InvoiceDetails() {
                 <div className="flex items-center space-x-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                   <div className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-lg text-indigo-500"><Building2 className="w-5 h-5" /></div>
                   <div>
-                    <p className="text-xs text-slate-500 font-medium">Vendor Name</p>
-                    <p className="text-sm font-bold text-slate-900">{invoice.vendorName || "Unidentified Vendor"}</p>
+                    <p className="text-xs text-slate-500 font-medium">Supplier Name</p>
+                    <p className="text-sm font-bold text-slate-900">{invoice.supplierName || "Unidentified Supplier"}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
@@ -179,8 +179,8 @@ export default function InvoiceDetails() {
                 <div className="flex items-center space-x-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                   <div className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-lg text-amber-500"><Activity className="w-5 h-5" /></div>
                   <div>
-                    <p className="text-xs text-slate-500 font-medium">Assigned Category</p>
-                    <p className="text-sm font-bold text-slate-900">{invoice.category || "Uncategorized"}</p>
+                    <p className="text-xs text-slate-500 font-medium">Ledger Account</p>
+                    <p className="text-sm font-bold text-slate-900">{invoice.ledgerAccountName || "Unmapped Ledger"}</p>
                   </div>
                 </div>
               </CardContent>

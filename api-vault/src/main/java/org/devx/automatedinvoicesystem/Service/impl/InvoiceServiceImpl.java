@@ -397,6 +397,13 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
+    public Invoice getInvoiceById(UUID invoiceId, UUID organizationId) {
+        return invoiceRepository.findById(invoiceId)
+                .filter(i -> i.getOrganization().getId().equals(organizationId))
+                .orElseThrow(() -> new IllegalArgumentException("Invoice not found or access denied"));
+    }
+
+    @Override
     public List<Invoice> searchInvoices(InvoiceSearchFilter filter) {
         return invoiceRepository.findAll(
                 InvoiceSpecification.getSearchSpecification(filter),

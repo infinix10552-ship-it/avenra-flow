@@ -8,7 +8,7 @@ import { Search, Filter, X } from "lucide-react";
 export default function FilterBar({ onFilterChange }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState({
-    vendorName: "",
+    supplierName: "",
     category: "",
     status: "",
     startDate: "",
@@ -23,7 +23,7 @@ export default function FilterBar({ onFilterChange }) {
   };
 
   const clearFilters = () => {
-    const reset = { vendorName: "", category: "", status: "", startDate: "", endDate: "" };
+    const reset = { supplierName: "", category: "", status: "", startDate: "", endDate: "" };
     setFilters(reset);
     onFilterChange(reset);
   };
@@ -37,10 +37,10 @@ export default function FilterBar({ onFilterChange }) {
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
-            placeholder="Search vendor names..." 
+            placeholder="Search supplier names..." 
             className="pl-9 bg-white"
-            value={filters.vendorName}
-            onChange={(e) => handleChange("vendorName", e.target.value)}
+            value={filters.supplierName}
+            onChange={(e) => handleChange("supplierName", e.target.value)}
           />
         </div>
         

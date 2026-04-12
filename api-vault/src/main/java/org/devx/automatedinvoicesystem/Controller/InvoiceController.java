@@ -97,6 +97,18 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.getInvoicesByClient(clientId));
     }
 
+    @GetMapping("/{invoiceId}")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN', 'MEMBER')")
+    public ResponseEntity<Invoice> getInvoiceById(
+            @RequestHeader("X-Organization-Id") UUID organizationId,
+            @PathVariable UUID invoiceId) {
+        try {
+            return ResponseEntity.ok(invoiceService.getInvoiceById(invoiceId, organizationId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     // ── SEARCH ENDPOINT ───────────────────────────────────────────────
 
     @GetMapping("/search")

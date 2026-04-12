@@ -52,8 +52,8 @@ export default function AllInvoices() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200 backdrop-blur-sm">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Vendor Name</th>
-                  <th className="px-6 py-4 font-semibold">Category</th>
+                  <th className="px-6 py-4 font-semibold">Supplier Name</th>
+                  <th className="px-6 py-4 font-semibold">Ledger Account</th>
                   <th className="px-6 py-4 font-semibold">Date</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
                   <th className="px-6 py-4 font-semibold text-right">Amount</th>
@@ -81,8 +81,8 @@ export default function AllInvoices() {
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                       className="bg-white hover:bg-slate-50 transition-colors"
                     >
-                      <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{invoice.vendorName || invoice.originalFileName}</td>
-                      <td className="px-6 py-4 text-slate-600">{invoice.category || "---"}</td>
+                      <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{invoice.supplierName || invoice.originalFileName}</td>
+                      <td className="px-6 py-4 text-slate-600">{invoice.ledgerAccountName || "---"}</td>
                       <td className="px-6 py-4 text-slate-600">{invoice.invoiceDate || "---"}</td>
                       <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
                       <td className="px-6 py-4 font-semibold text-right text-slate-900">{invoice.totalAmount ? formatCurrency(invoice.totalAmount) : "---"}</td>

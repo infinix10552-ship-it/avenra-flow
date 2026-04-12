@@ -21,6 +21,8 @@ public interface InvoiceService {
 
     List<Invoice> getInvoicesByClient(UUID clientId);
 
+    Invoice getInvoiceById(UUID invoiceId, UUID organizationId);
+
     Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId);
 
     Map<String, Integer> processBulkUpload(MultipartFile zipFile, UUID organizationId, UUID clientId);
