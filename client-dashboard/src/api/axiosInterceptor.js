@@ -23,7 +23,7 @@ api.interceptors.request.use(
         if (orgId) {
             config.headers['X-Organization-Id'] = orgId;
         }
-        
+
         return config;
     },
     (error) => Promise.reject(error)
@@ -33,14 +33,25 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        // If Java says 401 Unauthorized (token expired/tampered), nuke the state
+        // If Java says 401 Unauthorized (token expired/tampered), clear credentials.
         if (error.response && error.response.status === 401) {
-            console.warn("[AUTH] Vault access denied. Token expired or invalid.");
-            localStorage.removeItem('avenra_token');
-            localStorage.removeItem('avenra_org_id');
-            
-            // Force a redirect to login so the user doesn't stare at broken data
-            window.location.href = '/login'; 
+            console.warn('[AUTH] Vault access denied. Token expired or invalid.');
+
+            // CRITICAL FIX for Login Loop:
+            // Instead of calling window.location.href directly (which hard-reloads
+            // the page and bypasses React state, causing a redirect loop), we dispatch
+            // a custom event. AuthContext listens for this event and performs a clean
+            // React state update followed by window.location.replace('/login').
+            // This ensures React has a chance to tear down state correctly before navigating.
+            //
+            // Guard: Only dispatch if we actually had credentials stored (prevents
+            // firing on public endpoints that legitimately return 401).
+            const hadToken = localStorage.getItem('avenra_token');
+            if (hadToken) {
+                localStorage.removeItem('avenra_token');
+                localStorage.removeItem('avenra_org_id');
+                window.dispatchEvent(new Event('auth:logout'));
+            }
         }
         return Promise.reject(error);
     }

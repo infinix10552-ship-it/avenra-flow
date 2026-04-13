@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import api from "../api/axiosInterceptor";
-import { useAuth } from "../context/useAuth"; 
+import { useAuth } from "../context/useAuth";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import logo from "../assets/avenra-logo.png";
@@ -69,8 +69,15 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // CRITICAL FIX: If the user already has a valid session, redirect them to
+  // the dashboard immediately. Without this guard, returning users and users
+  // who just logged in could land back on this page due to the redirect loop.
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const decodeJwt = (token) => {
     try {

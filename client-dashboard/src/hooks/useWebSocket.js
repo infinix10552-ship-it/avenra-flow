@@ -3,8 +3,17 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 export function useWebSocket(onMessageReceived) {
-  // We use a ref to hold the client so it persists across renders without causing re-renders itself
+  // Hold the STOMP client in a ref so it persists across renders
   const clientRef = useRef(null);
+
+  // CRITICAL FIX: Store the callback in a ref so the STOMP effect never needs
+  // to re-run when the callback reference changes. Without this, every render
+  // of DashboardLayout (triggered by navigation) would teardown and reconnect
+  // the WebSocket, causing the white screen flash.
+  const onMessageRef = useRef(onMessageReceived);
+  useEffect(() => {
+    onMessageRef.current = onMessageReceived;
+  }, [onMessageReceived]);
 
   useEffect(() => {
     // 1. Retrieve the Vault Keys
@@ -15,19 +24,18 @@ export function useWebSocket(onMessageReceived) {
 
     // 2. Initialize the STOMP Client
     const client = new Client({
-      // We use SockJS as a fallback bridge in case the user's corporate firewall blocks pure WebSockets
+      // SockJS as a fallback bridge for corporate firewalls blocking pure WebSockets
       webSocketFactory: () => new SockJS(import.meta.env.VITE_WS_BASE_URL),
-      
+
       // CRITICAL: Pass the JWT in the handshake so Java's WebSocketSecurityInterceptor lets us in
       connectHeaders: {
         Authorization: `Bearer ${token}`
       },
-      
+
       debug: () => {
-        // Uncomment this if you need to deep-debug the socket connection
         // console.log('[STOMP] ' + str);
       },
-      
+
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
@@ -36,16 +44,15 @@ export function useWebSocket(onMessageReceived) {
     // 3. The Connection Lifecycle
     client.onConnect = () => {
       console.log('🚀 [WEBSOCKET] Connected to Avenra Real-Time Highway.');
-      
-      // Subscribe to this specific organization's private broadcast channel
+
       const subscriptionTopic = `/topic/organization/${orgId}`;
-      
+
       client.subscribe(subscriptionTopic, (message) => {
         if (message.body) {
           const payload = JSON.parse(message.body);
           console.log('📥 [WEBSOCKET] Payload Received:', payload);
-          // Pass the data back to the React component that called this hook
-          if (onMessageReceived) onMessageReceived(payload);
+          // Always call the latest callback via the ref — never stale
+          if (onMessageRef.current) onMessageRef.current(payload);
         }
       });
     };
@@ -59,14 +66,15 @@ export function useWebSocket(onMessageReceived) {
     client.activate();
     clientRef.current = client;
 
-    // 5. The Teardown (Memory Leak Prevention)
-    // When the user leaves the dashboard, React will run this return function to sever the connection gracefully.
+    // 5. Teardown — only runs when DashboardLayout unmounts (user fully leaves the authenticated area)
     return () => {
       if (clientRef.current) {
         clientRef.current.deactivate();
+        clientRef.current = null;
         console.log('🛑 [WEBSOCKET] Connection severed gracefully.');
       }
     };
-  }, [onMessageReceived]);
-
+  // Empty deps: connect once on mount, disconnect on unmount. The callback ref
+  // handles keeping the handler current without triggering reconnects.
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }

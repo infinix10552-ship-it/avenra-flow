@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import api from "../api/axiosInterceptor";
+import { useAuth } from "../context/useAuth";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import logo from "../assets/avenra-logo.png";
@@ -43,7 +44,13 @@ export default function Register() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect already-authenticated users away from register page
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleRegister = async (e) => {
     e.preventDefault();
