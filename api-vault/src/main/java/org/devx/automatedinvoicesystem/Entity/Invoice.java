@@ -136,6 +136,16 @@ public class Invoice extends Base {
     @Column(name = "modified_at")
     private LocalDateTime modifiedAt;
 
+    // ── SOFT DELETE AUDIT FIELDS ──────────────────────────────────────
+
+    // Email of the user who soft-deleted this invoice
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
+
+    // Timestamp of the soft deletion
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     // ── STATE MACHINE (PRD §1.2) ──────────────────────────────────────
     //
     // PENDING → PROCESSING                  (RabbitMQ pickup)
@@ -151,6 +161,7 @@ public class Invoice extends Base {
         PROCESSING,              // AI worker is extracting data
         COMPLETED,               // Extraction + validation passed
         REQUIRES_MANUAL_REVIEW,  // Validation failed (math mismatch, low confidence, missing ledger, invalid GSTIN)
-        FAILED                   // Processing crashed (corrupt file, AI error, duplicate invoice)
+        FAILED,                  // Processing crashed (corrupt file, AI error, duplicate invoice)
+        DELETED                  // Soft-deleted by user (retained for audit trail)
     }
 }

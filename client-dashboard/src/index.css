@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
@@ -15,6 +17,7 @@ html {
   --color-avenra-600: #254682; /* Muted brand */
   --color-avenra-500: #305ba3; /* Primary Brand Blue */
   --color-avenra-400: #4a7acb; /* Highlight Blue */
+  --color-avenra-50: #eef4fb;  /* Lightest tint */
   
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
@@ -31,9 +34,46 @@ html {
 
   body {
     @apply bg-[var(--background)] text-[var(--foreground)] antialiased selection:bg-avenra-500 selection:text-white;
+    font-feature-settings: 'cv11', 'ss01';
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Custom Scrollbar for data tables */
+  /* Premium smooth page transitions */
+  main {
+    animation: pageEnter 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @keyframes pageEnter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Global transition polish for all interactive elements */
+  button, a, input, select, textarea {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Smooth focus rings for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-avenra-400/50 ring-offset-2 ring-offset-white;
+    transition: box-shadow 0.2s ease;
+  }
+
+  /* Premium card hover lift */
+  .card-hover {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Custom Scrollbar for data tables  */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -46,5 +86,42 @@ html {
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-slate-300;
+  }
+
+  /* Table row hover transition */
+  tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  /* Smooth sidebar transitions */
+  aside {
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Badge pulse animation refinement */
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+}
+
+/* Utility: Glassmorphism backdrop */
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 }

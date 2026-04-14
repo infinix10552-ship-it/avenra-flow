@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card"
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import FilterBar from "../components/shared/FilterBar";
-import { DollarSign, Clock, CheckCircle2, Download, AlertTriangle, FileText, ClipboardCheck } from "lucide-react";
+import { DollarSign, Clock, CheckCircle2, Download, FileText, ClipboardCheck, Trash2, History } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -21,6 +21,7 @@ const itemVariants = {
 
 export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
+  const [deletedInvoices, setDeletedInvoices] = useState([]);
   const [stats, setStats] = useState({
     totalInvoices: 0,
     completed: 0,
@@ -54,22 +55,27 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchDeletedHistory = useCallback(async () => {
+    try {
+      const response = await api.get("/invoices/deleted-history");
+      setDeletedInvoices(response.data);
+    } catch (error) {
+      console.error("Failed to fetch deletion audit log:", error);
+    }
+  }, []);
+
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([fetchInvoices(), fetchAnalytics()]).finally(() => setIsLoading(false));
+    Promise.all([fetchInvoices(), fetchAnalytics(), fetchDeletedHistory()]).finally(() => setIsLoading(false));
     
     const handleUpdate = () => {
       fetchInvoices();
       fetchAnalytics();
+      fetchDeletedHistory();
     };
     window.addEventListener('invoice-updated', handleUpdate);
     return () => window.removeEventListener('invoice-updated', handleUpdate);
-  }, [fetchInvoices, fetchAnalytics]);
-
-  const totalVolume = invoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0);
-  const pendingCount = invoices.filter(i => i.status === "PENDING" || i.status === "PROCESSING").length;
-  const completedCount = invoices.filter(i => i.status === "COMPLETED").length;
-  const reviewCount = invoices.filter(i => i.status === "REQUIRES_MANUAL_REVIEW").length;
+  }, [fetchInvoices, fetchAnalytics, fetchDeletedHistory]);
 
   const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
 
@@ -104,6 +110,14 @@ export default function Dashboard() {
     }
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return "—";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch { return dateStr; }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 relative">
       
@@ -117,13 +131,13 @@ export default function Dashboard() {
           <Button variant="outline" onClick={handleExportCSV} disabled={exportLoading}>
             <Download className="w-4 h-4 mr-2"/> {exportLoading ? "Generating..." : "Export to Tally"}
           </Button>
-          <Button onClick={() => { fetchInvoices(); fetchAnalytics(); }}>Refresh</Button>
+          <Button onClick={() => { fetchInvoices(); fetchAnalytics(); fetchDeletedHistory(); }}>Refresh</Button>
         </div>
       </Motion.div>
 
       {/* TELEMETRY DECK — 4 cards */}
       <Motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-               <Motion.div variants={itemVariants}>
+        <Motion.div variants={itemVariants}>
           <Card className="hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 border-slate-200/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-500">Total Revenue Vault</CardTitle>
@@ -264,6 +278,54 @@ export default function Dashboard() {
           </div>
         </Card>
       </Motion.div>
+
+      {/* DELETION AUDIT LOG */}
+      {deletedInvoices.length > 0 && (
+        <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
+          <Card className="overflow-hidden border-red-200/60 shadow-sm bg-red-50/20">
+            <CardHeader className="flex flex-row items-center justify-between py-4 border-b border-red-100 bg-red-50/50">
+              <CardTitle className="text-sm font-semibold text-red-800 flex items-center">
+                <History className="w-4 h-4 mr-2 text-red-500" />
+                Deletion Audit Log
+                <span className="ml-2 text-xs font-normal text-red-500 bg-red-100 px-2 py-0.5 rounded-full">{deletedInvoices.length} records</span>
+              </CardTitle>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-red-600 uppercase bg-red-50/80 border-b border-red-100">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">Supplier / File</th>
+                    <th className="px-5 py-3 font-semibold">Invoice Date</th>
+                    <th className="px-5 py-3 font-semibold text-right">Amount</th>
+                    <th className="px-5 py-3 font-semibold">Deleted By</th>
+                    <th className="px-5 py-3 font-semibold">Deleted At</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-100">
+                  {deletedInvoices.map((inv) => (
+                    <tr key={inv.id} className="bg-white/60 hover:bg-red-50/40 transition-colors">
+                      <td className="px-5 py-3 font-medium text-slate-800 whitespace-nowrap max-w-[200px] truncate">
+                        <div className="flex items-center space-x-2">
+                          <Trash2 className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                          <span>{inv.supplierName || inv.originalFileName}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-slate-600">{inv.invoiceDate || "—"}</td>
+                      <td className="px-5 py-3 font-semibold text-slate-800 text-right">{inv.totalAmount ? formatCurrency(inv.totalAmount) : "—"}</td>
+                      <td className="px-5 py-3">
+                        <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded-md">
+                          {inv.deletedBy || "SYSTEM"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-slate-600 text-xs">{formatDateTime(inv.deletedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </Motion.div>
+      )}
 
       <Toast isVisible={toastConfig.isVisible} message={toastConfig.message} onClose={() => setToastConfig({ isVisible: false, message: "" })}/>
     </div>

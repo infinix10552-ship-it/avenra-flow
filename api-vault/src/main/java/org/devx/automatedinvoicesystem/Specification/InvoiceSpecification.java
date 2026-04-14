@@ -19,6 +19,10 @@ public class InvoiceSpecification {
             predicates.add(criteriaBuilder.equal(
                     root.get("organization").get("id"), filter.getOrganizationId()));
 
+            // AUTO-FILTER: Always exclude soft-deleted invoices from normal views
+            predicates.add(criteriaBuilder.notEqual(
+                    root.get("status"), Invoice.ProcessingStatus.DELETED));
+
             // Optional: Client scope
             if (filter.getClientId() != null) {
                 predicates.add(criteriaBuilder.equal(

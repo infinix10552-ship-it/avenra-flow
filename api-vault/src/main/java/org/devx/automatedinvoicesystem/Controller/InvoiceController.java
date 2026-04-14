@@ -113,13 +113,27 @@ public class InvoiceController {
     @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
     public ResponseEntity<?> deleteInvoice(
             @RequestHeader("X-Organization-Id") UUID organizationId,
-            @PathVariable UUID invoiceId) {
+            @PathVariable UUID invoiceId,
+            java.security.Principal principal) {
         try {
-            invoiceService.deleteInvoiceById(invoiceId, organizationId);
-            return ResponseEntity.ok(Map.of("message", "Invoice securely deleted from the vault"));
+            String deletedByEmail = principal != null ? principal.getName() : "UNKNOWN";
+            invoiceService.deleteInvoiceById(invoiceId, organizationId, deletedByEmail);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Invoice securely deleted from the vault",
+                    "deletedBy", deletedByEmail,
+                    "deletedAt", java.time.LocalDateTime.now().toString()
+            ));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Invoice not found or access denied for this organization."));
         }
+    }
+
+    @GetMapping("/deleted-history")
+    @PreAuthorize("@tenantSecurity.hasRole(#organizationId, 'OWNER', 'ADMIN')")
+    public ResponseEntity<List<Invoice>> getDeletedHistory(
+            @RequestHeader("X-Organization-Id") UUID organizationId) {
+        return ResponseEntity.ok(invoiceService.getDeletedInvoices(organizationId));
     }
 
     // ── SEARCH ENDPOINT ───────────────────────────────────────────────

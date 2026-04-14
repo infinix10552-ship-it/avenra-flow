@@ -41,17 +41,19 @@ public class SecurityConfig {
                 // 3. ROUTE PERMISSIONS: The VIP List vs. The Vault
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // The Authentication Controller (which we will build next) MUST be public so users can get a token
+                        // The Authentication Controller MUST be public so users can get a token
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        //Let the HTTP upgrade request through
+                        // Let the HTTP upgrade request through
                         .requestMatchers("/ws/**").permitAll()
-                        //  Whitelist our local S3 simulation so Python can download the PDFs
+                        // Whitelist our local S3 simulation so Python can download the PDFs
                         .requestMatchers("/local-files/**").permitAll()
                         // Allow Python to talk to Java without a JWT
                         .requestMatchers("/api/v1/webhook/**").permitAll()
-                        // Health checks should be public so load balancers can ping them without needing a token
+                        // Health checks should be public so load balancers can ping them
                         .requestMatchers("/health").permitAll()
+                        // OAuth2 callback paths must be public (prevents JWT filter from intercepting Google's redirect)
+                        .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
                         // Any request to core APIs MUST be authenticated
                         .requestMatchers("/api/v1/invoices/**").authenticated()
                         .requestMatchers("/api/v1/clients/**").authenticated()
@@ -59,10 +61,11 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // 4. STATELESS SESSIONS: Tell Tomcat NEVER to create an HttpSession in memory.
-                // Every single request must be re-authenticated using the JWT.
+                // 4. SESSION POLICY: IF_REQUIRED allows the temporary session needed by
+                // Spring's OAuth2 authorization code flow (Google redirect needs state correlation),
+                // while the JWT filter ensures all API requests are still fully stateless.
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
 
                 .oauth2Login(oauth2 -> oauth2

@@ -29,13 +29,15 @@ export default function AllInvoices() {
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   const handleDelete = async (invoiceId) => {
-    const isConfirmed = window.confirm("Are you sure you want to permanently delete this invoice from the secure vault?");
+    const isConfirmed = window.confirm("Are you sure you want to permanently delete this invoice from the secure vault? This action will be recorded in the audit log.");
     if (!isConfirmed) return;
     try {
-      await api.delete(`/invoices/${invoiceId}`);
+      const response = await api.delete(`/invoices/${invoiceId}`);
       setInvoices(invoices.filter(inv => inv.id !== invoiceId));
+      alert(`✅ ${response.data?.message || "Invoice deleted successfully."}`);
     } catch (err) {
-      alert("Failed to delete invoice: Access denied or record not found.");
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || "Unknown error";
+      alert("Failed to delete invoice: " + errorMsg);
     }
   };
 
@@ -49,7 +51,7 @@ export default function AllInvoices() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (error) {
+    } catch {
       alert("Failed to generate export file. Verify network connectivity.");
     }
   };

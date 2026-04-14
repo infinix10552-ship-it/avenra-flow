@@ -13,6 +13,7 @@ import org.devx.automatedinvoicesystem.Repository.InvoiceAuditLogRepo;
 import org.devx.automatedinvoicesystem.Repository.InvoiceRepo;
 import org.devx.automatedinvoicesystem.Repository.OrganizationRepo;
 import org.devx.automatedinvoicesystem.Repository.ProcessingLogRepo;
+import org.devx.automatedinvoicesystem.Service.CurrencyConversionService;
 import org.devx.automatedinvoicesystem.Service.FileStorageService;
 import org.devx.automatedinvoicesystem.Service.InvoiceService;
 import org.devx.automatedinvoicesystem.Service.WebSocketNotificationService;
@@ -45,6 +46,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final InvoiceMessagePublisher invoiceMessagePublisher;
     private final WebSocketNotificationService notificationService;
     private final InvoiceValidationService validationService;
+    private final CurrencyConversionService currencyConversionService;
 
     public InvoiceServiceImpl(FileStorageService fileStorageService,
                               InvoiceRepo invoiceRepository,
@@ -54,7 +56,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                               InvoiceAuditLogRepo auditLogRepo,
                               InvoiceMessagePublisher invoiceMessagePublisher,
                               WebSocketNotificationService notificationService,
-                              InvoiceValidationService validationService) {
+                              InvoiceValidationService validationService,
+                              CurrencyConversionService currencyConversionService) {
         this.fileStorageService = fileStorageService;
         this.invoiceRepository = invoiceRepository;
         this.organizationRepository = organizationRepository;
@@ -64,6 +67,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         this.invoiceMessagePublisher = invoiceMessagePublisher;
         this.notificationService = notificationService;
         this.validationService = validationService;
+        this.currencyConversionService = currencyConversionService;
     }
 
     // ── SINGLE UPLOAD (Legacy — no client scope) ──────────────────────
@@ -229,9 +233,27 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setLedgerAccountName(payload.getLedgerAccountName());
         
         // Map multi-currency fields
-        if (payload.getCurrency() != null) invoice.setOriginalCurrency(payload.getCurrency());
-        if (payload.getExchangeRate() != null) invoice.setExchangeRate(payload.getExchangeRate());
-        invoice.setConvertedAmountInr(payload.getConvertedAmountInr());
+        String detectedCurrency = payload.getCurrency() != null ? payload.getCurrency() : "INR";
+        invoice.setOriginalCurrency(detectedCurrency);
+
+        // LIVE FOREX ENGINE: Fetch real-time exchange rate for non-INR invoices
+        if (!"INR".equalsIgnoreCase(detectedCurrency)) {
+            BigDecimal liveRate = currencyConversionService.getExchangeRateToINR(detectedCurrency);
+            invoice.setExchangeRate(liveRate);
+
+            // Convert total amount to INR using the live rate
+            BigDecimal totalInr = currencyConversionService.convertToINR(invoice.getTotalAmount(), detectedCurrency);
+            invoice.setConvertedAmountInr(totalInr);
+
+            processingLogRepo.save(ProcessingLog.create(
+                    invoice, ProcessingLog.LogLevel.INFO, "FOREX_CONVERSION",
+                    "Live conversion: " + detectedCurrency + " → INR at rate " + liveRate
+                            + ". Total INR: " + totalInr
+            ));
+        } else {
+            invoice.setExchangeRate(BigDecimal.ONE);
+            invoice.setConvertedAmountInr(invoice.getTotalAmount());
+        }
 
         processingLogRepo.save(ProcessingLog.create(
                 invoice, ProcessingLog.LogLevel.INFO, "AI_EXTRACTION",
@@ -411,8 +433,31 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     @Transactional
     public void deleteInvoiceById(UUID invoiceId, UUID organizationId) {
+        deleteInvoiceById(invoiceId, organizationId, null);
+    }
+
+    @Override
+    @Transactional
+    public void deleteInvoiceById(UUID invoiceId, UUID organizationId, String deletedByEmail) {
         Invoice invoice = getInvoiceById(invoiceId, organizationId);
-        invoiceRepository.delete(invoice);
+
+        // SOFT DELETE: Mark as DELETED instead of removing from DB
+        invoice.setStatus(ProcessingStatus.DELETED);
+        invoice.setDeletedBy(deletedByEmail != null ? deletedByEmail : "SYSTEM");
+        invoice.setDeletedAt(LocalDateTime.now());
+        invoiceRepository.save(invoice);
+
+        processingLogRepo.save(ProcessingLog.create(
+                invoice, ProcessingLog.LogLevel.WARN, "SOFT_DELETED",
+                "Invoice soft-deleted by: " + (deletedByEmail != null ? deletedByEmail : "SYSTEM")
+        ));
+
+        System.out.println("🗑️ [DELETE] Invoice " + invoiceId + " soft-deleted by " + deletedByEmail);
+    }
+
+    @Override
+    public List<Invoice> getDeletedInvoices(UUID organizationId) {
+        return invoiceRepository.findByOrganizationIdAndStatus(organizationId, ProcessingStatus.DELETED);
     }
 
     @Override

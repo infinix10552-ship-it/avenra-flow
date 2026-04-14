@@ -25,6 +25,10 @@ public interface InvoiceService {
 
     void deleteInvoiceById(UUID invoiceId, UUID organizationId);
 
+    void deleteInvoiceById(UUID invoiceId, UUID organizationId, String deletedByEmail);
+
+    List<Invoice> getDeletedInvoices(UUID organizationId);
+
     Map<String, Object> getDashboardAnalytics(UUID organizationId);
 
     byte[] generateCsvExport(UUID organizationId);

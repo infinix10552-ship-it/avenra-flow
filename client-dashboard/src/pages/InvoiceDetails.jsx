@@ -22,6 +22,10 @@ export default function InvoiceDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   
+  // CRITICAL FIX: These useState declarations were missing, causing a complete white screen crash
+  const [invoice, setInvoice] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -30,10 +34,12 @@ export default function InvoiceDetails() {
     const fetchInvoiceDetails = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         const response = await api.get(`/invoices/${id}`);
         setInvoice(response.data);
         setEditForm(response.data);
-      } catch {
+      } catch (err) {
+        console.error("[InvoiceDetails] Fetch failed:", err);
         setError("Failed to locate this invoice in the secure vault.");
       } finally {
         setIsLoading(false);
@@ -56,7 +62,6 @@ export default function InvoiceDetails() {
       const response = await api.put(`/invoices/${id}/correct`, editForm);
       setInvoice(response.data);
       setIsEditing(false);
-      // Optional: show success toast
     } catch (err) {
       alert("Failed to save corrections: " + (err.response?.data?.error || err.message));
     } finally {
@@ -120,13 +125,13 @@ export default function InvoiceDetails() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sticky top-0 z-20"
       >
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="px-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="px-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
             <ArrowLeft className="w-5 h-5 mr-2" /> Back
           </Button>
           <div className="h-6 w-px bg-slate-200"></div>
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center">
-              Invoice Record <span className="text-slate-400 font-mono ml-2 text-sm bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">#{invoice.id.substring(0,8)}</span>
+              Invoice Record <span className="text-slate-400 font-mono ml-2 text-sm bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">#{invoice.id?.substring(0,8)}</span>
             </h1>
           </div>
         </div>

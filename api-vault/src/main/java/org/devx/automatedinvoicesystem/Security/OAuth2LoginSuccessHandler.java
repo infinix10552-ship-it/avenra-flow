@@ -59,7 +59,25 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (existingUser.isPresent()) {
             user = existingUser.get();
             List<OrganizationMember> memberships = orgMemberRepository.findByUser(user);
-            targetOrgId = memberships.isEmpty() ? null : memberships.get(0).getOrganization().getId().toString();
+
+            if (memberships.isEmpty()) {
+                // CRITICAL FIX: Orphaned user has no org — create a personal workspace
+                // so the JWT always contains a valid orgId (prevents redirect loop)
+                Organization personalOrg = new Organization();
+                personalOrg.setName(user.getFirstName() + "'s Personal Workspace");
+                personalOrg.setOwnerId(user.getId());
+                personalOrg = organizationRepository.save(personalOrg);
+
+                OrganizationMember ownerMember = new OrganizationMember();
+                ownerMember.setUser(user);
+                ownerMember.setOrganization(personalOrg);
+                ownerMember.setRole(OrganizationMember.MemberRole.OWNER);
+                orgMemberRepository.save(ownerMember);
+
+                targetOrgId = personalOrg.getId().toString();
+            } else {
+                targetOrgId = memberships.get(0).getOrganization().getId().toString();
+            }
         } else {
             user = new User();
             user.setEmail(email);

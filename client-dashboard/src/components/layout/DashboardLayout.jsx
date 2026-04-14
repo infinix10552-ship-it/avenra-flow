@@ -1,5 +1,6 @@
 import { useState, useCallback, Suspense } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../shared/Sidebar";
 import Topbar from "../shared/Topbar";
 import { useWebSocket } from "../../hooks/useWebSocket";
@@ -19,8 +20,16 @@ function PageLoader() {
   );
 }
 
+// Page transition variants for smooth navigation
+const pageVariants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.15, ease: "easeIn" } }
+};
+
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
 
   // CRITICAL FIX: useCallback guarantees a stable reference.
   // Without this, an inline arrow function would create a new reference on every
@@ -50,10 +59,21 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
 
-        {/* Suspense boundary prevents white screens during lazy-load or state transitions */}
+        {/* AnimatePresence + Suspense boundary prevents white screens and adds smooth transitions */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <Suspense fallback={<PageLoader />}>
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <Motion.div
+                key={location.pathname}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="h-full"
+              >
+                <Outlet />
+              </Motion.div>
+            </AnimatePresence>
           </Suspense>
         </main>
       </div>
