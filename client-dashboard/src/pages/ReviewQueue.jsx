@@ -90,7 +90,7 @@ export default function ReviewQueue() {
 
   const getConfidenceBadge = (score) => {
     if (score == null) return <Badge variant="default">N/A</Badge>;
-    if (score >= 85) return <Badge variant="success">{score}%</Badge>;
+    if (score >= 75) return <Badge variant="success">{score}%</Badge>;
     if (score >= 50) return <Badge variant="warning">{score}%</Badge>;
     return <Badge variant="error">{score}%</Badge>;
   };
@@ -198,13 +198,13 @@ export default function ReviewQueue() {
 
                   {/* Confidence Banner */}
                   <div className={`p-3 rounded-lg text-sm font-medium ${
-                    (selectedInvoice.aiConfidenceScore || 0) < 85 || selectedInvoice.failureReason
+                    (selectedInvoice.aiConfidenceScore || 0) < 75 || selectedInvoice.failureReason
                       ? "bg-amber-50 text-amber-800 border border-amber-200"
                       : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                   }`}>
                     <div className="flex items-center mb-1">
                       <strong className="mr-2">AI Confidence: {selectedInvoice.aiConfidenceScore || "N/A"}%</strong>
-                      {(selectedInvoice.aiConfidenceScore || 0) < 85 && " — Below 85% threshold."}
+                      {(selectedInvoice.aiConfidenceScore || 0) < 75 && " — Below 75% threshold."}
                     </div>
                     {selectedInvoice.failureReason && (
                       <div className="flex items-center text-red-700 font-semibold text-xs mt-2 p-2 bg-red-50 rounded border border-red-100">

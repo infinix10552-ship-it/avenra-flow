@@ -19,7 +19,7 @@ import java.util.UUID;
  * <ol>
  *   <li>GSTIN format + state code validation (supplier + buyer)</li>
  *   <li>Tax math: base + cgst + sgst + igst == total</li>
- *   <li>AI confidence threshold (>= 85)</li>
+ *   <li>AI confidence threshold (>= 75)</li>
  *   <li>Ledger mapping enforcement (must exist in client's Chart of Accounts)</li>
  *   <li>Duplicate detection (supplierGstin + invoiceNumber + invoiceDate + clientId)</li>
  * </ol>
@@ -92,10 +92,10 @@ public class InvoiceValidationService {
         }
 
         // ── 3. CONFIDENCE THRESHOLD (PRD §3.1) ────────────────────────────
-        if (payload.getConfidenceScore() == null || payload.getConfidenceScore() < 85.0) {
+        if (payload.getConfidenceScore() == null || payload.getConfidenceScore() < 75.0) {
             failures.add("AI confidence below threshold: "
                     + (payload.getConfidenceScore() != null ? payload.getConfidenceScore() : "null")
-                    + "% (min: 85%)");
+                    + "% (min: 75%)");
         }
 
         // ── 4. LEDGER MAPPING ENFORCEMENT (PRD §2.2) ──────────────────────

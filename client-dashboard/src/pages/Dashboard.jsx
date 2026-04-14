@@ -268,7 +268,7 @@ export default function Dashboard() {
                       <td className="px-5 py-3.5 text-center">
                         {invoice.aiConfidenceScore != null ? (
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            invoice.aiConfidenceScore >= 85 ? "bg-emerald-100 text-emerald-700" :
+                            invoice.aiConfidenceScore >= 75 ? "bg-emerald-100 text-emerald-700" :
                             invoice.aiConfidenceScore >= 50 ? "bg-amber-100 text-amber-700" :
                             "bg-red-100 text-red-700"
                           }`}>
