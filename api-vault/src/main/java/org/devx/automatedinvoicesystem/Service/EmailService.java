@@ -11,6 +11,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,13 @@ public class EmailService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final String brevoUrl = "https://api.brevo.com/v3/smtp/email";
+
+    @PostConstruct
+    public void init() {
+        if ("none".equals(apiKey)) {
+            System.err.println("\n⚠️ [EMAIL SERVICE] Brevo API Key not configured! Emails will ONLY be printed to the console (Local Dev Mode).\n");
+        }
+    }
 
     @Async
     public void sendPasswordResetEmail(String toEmail, String resetUrl) {
@@ -96,6 +104,16 @@ public class EmailService {
      * the EXACT HTTP response body is logged instead of being silently swallowed.
      */
     private void sendEmail(Map<String, Object> payload, String emailType, String toEmail) {
+        if ("none".equals(apiKey)) {
+            System.out.println("\n====== [LOCAL DEV MODE: MOCKED EMAIL] ======");
+            System.out.println("Email Type: " + emailType.toUpperCase());
+            System.out.println("To:         " + toEmail);
+            System.out.println("Subject:    " + payload.get("subject"));
+            System.out.println("Content:    " + payload.get("htmlContent"));
+            System.out.println("==========================================\n");
+            return;
+        }
+
         HttpHeaders headers = new HttpHeaders();
         headers.set("api-key", apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -105,21 +123,16 @@ public class EmailService {
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(brevoUrl, request, String.class);
             System.out.println("✅ [EMAIL] " + emailType + " sent to " + toEmail
-                    + " | Status: " + response.getStatusCode()
-                    + " | Response: " + response.getBody());
+                    + " | Status: " + response.getStatusCode());
         } catch (HttpClientErrorException e) {
-            // 4xx errors: Bad request, unauthorized, forbidden (e.g. unverified sender)
             System.err.println("❌ [EMAIL ERROR] " + emailType + " to " + toEmail + " REJECTED by Brevo.");
             System.err.println("   HTTP Status: " + e.getStatusCode());
             System.err.println("   Response Body: " + e.getResponseBodyAsString());
-            System.err.println("   ⚠️  Common causes: Invalid API key, unverified sender email, or account limits reached.");
         } catch (HttpServerErrorException e) {
-            // 5xx errors: Brevo server issues
             System.err.println("❌ [EMAIL ERROR] Brevo server error for " + emailType + " to " + toEmail);
             System.err.println("   HTTP Status: " + e.getStatusCode());
             System.err.println("   Response Body: " + e.getResponseBodyAsString());
         } catch (Exception e) {
-            // Network errors, DNS failures, timeouts
             System.err.println("❌ [EMAIL ERROR] Failed to send " + emailType + " to " + toEmail);
             System.err.println("   Exception: " + e.getClass().getSimpleName() + " — " + e.getMessage());
         }

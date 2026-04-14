@@ -71,18 +71,18 @@ def validate_ai_output(data):
 # ── CONFIDENCE SCORING ─────────────────────────────────────────────
 
 FIELD_WEIGHTS = {
-    "invoiceNumber": 8,
-    "invoiceDate": 8,
+    "invoiceNumber": 9,
+    "invoiceDate": 9,
     "supplierName": 10,
-    "supplierGstin": 12,
-    "buyerGstin": 12,
+    "supplierGstin": 15,
+    "buyerGstin": 5,
     "hsnSac": 5,
     "baseAmount": 10,
     "cgst": 7,
     "sgst": 7,
     "igst": 5,
     "totalAmount": 10,
-    "ledgerAccountName": 6,
+    "ledgerAccountName": 8,
 }
 
 def compute_field_confidence(field_name, value):
@@ -384,6 +384,9 @@ def process_invoice(ch, method, properties, body):
                 "sgst": structured_data.get("sgst"),
                 "igst": structured_data.get("igst"),
                 "totalAmount": structured_data.get("totalAmount"),
+                "currency": structured_data.get("currency"),
+                "exchangeRate": structured_data.get("exchangeRate"),
+                "convertedAmountInr": structured_data.get("convertedAmountInr"),
                 "ledgerAccountName": structured_data.get("ledgerAccountName"),
                 "confidenceScore": structured_data.get("confidenceScore"),
             }
