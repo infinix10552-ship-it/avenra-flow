@@ -439,20 +439,34 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     @Transactional
     public void deleteInvoiceById(UUID invoiceId, UUID organizationId, String deletedByEmail) {
-        Invoice invoice = getInvoiceById(invoiceId, organizationId);
+        try {
+            Invoice invoice = getInvoiceById(invoiceId, organizationId);
 
-        // SOFT DELETE: Mark as DELETED instead of removing from DB
-        invoice.setStatus(ProcessingStatus.DELETED);
-        invoice.setDeletedBy(deletedByEmail != null ? deletedByEmail : "SYSTEM");
-        invoice.setDeletedAt(LocalDateTime.now());
-        invoiceRepository.save(invoice);
+            // SOFT DELETE: Mark as DELETED instead of removing from DB
+            invoice.setStatus(ProcessingStatus.DELETED);
+            invoice.setDeletedBy(deletedByEmail != null ? deletedByEmail : "SYSTEM");
+            invoice.setDeletedAt(LocalDateTime.now());
+            
+            invoiceRepository.saveAndFlush(invoice);
 
-        processingLogRepo.save(ProcessingLog.create(
-                invoice, ProcessingLog.LogLevel.WARN, "SOFT_DELETED",
-                "Invoice soft-deleted by: " + (deletedByEmail != null ? deletedByEmail : "SYSTEM")
-        ));
+            // Audit Log: Record deletion event
+            try {
+                processingLogRepo.save(ProcessingLog.create(
+                        invoice, ProcessingLog.LogLevel.WARN, "SOFT_DELETED",
+                        "Invoice soft-deleted by: " + (deletedByEmail != null ? deletedByEmail : "SYSTEM")
+                ));
+            } catch (Exception logError) {
+                System.err.println("⚠️ [DELETE] Failed to write processing log, but invoice was deleted: " + logError.getMessage());
+            }
 
-        System.out.println("🗑️ [DELETE] Invoice " + invoiceId + " soft-deleted by " + deletedByEmail);
+            System.out.println("🗑️ [DELETE] Invoice " + invoiceId + " successfully soft-deleted by " + deletedByEmail);
+        } catch (IllegalArgumentException e) {
+            throw e; // Rethrow for controller to handle as 404/403
+        } catch (Exception e) {
+            System.err.println("❌ [FATAL DELETE ERROR] Details: " + e.getClass().getSimpleName() + " — " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Database integrity error during deletion: " + e.getMessage());
+        }
     }
 
     @Override

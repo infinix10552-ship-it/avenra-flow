@@ -121,14 +121,29 @@ public class AuthenticationService {
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        PasswordResetToken resetToken = tokenRepository.findByToken(token).orElseThrow(() -> new IllegalArgumentException("Invalid or missing token."));
+        System.out.println("🔐 [AUTH] Attempting password reset for token: " + token);
+        
+        PasswordResetToken resetToken = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or missing token. The link may have been already used or is incorrect."));
+
         if (resetToken.isExpired()) {
             tokenRepository.delete(resetToken);
             throw new IllegalArgumentException("This reset link has expired. Please request a new one.");
         }
+
         User user = resetToken.getUser();
+        if (user == null) {
+            throw new IllegalStateException("Critical Error: Token exists but is not linked to any user.");
+        }
+
+        // Update password with security-hardened encoding
         user.setPassword(passwordEncoder.encode(newPassword));
-        userRepo.save(user);
+        userRepo.saveAndFlush(user); 
+
+        // CRITICAL: Clean up the token so it cannot be reused
         tokenRepository.delete(resetToken);
+        tokenRepository.flush();
+        
+        System.out.println("✅ [AUTH] Password reset successful for user: " + user.getEmail());
     }
 }

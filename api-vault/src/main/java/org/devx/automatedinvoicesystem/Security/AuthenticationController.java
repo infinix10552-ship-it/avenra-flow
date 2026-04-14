@@ -55,7 +55,8 @@ public class AuthenticationController {
             return ResponseEntity.ok(Map.of("message", "Password has been successfully reset. You can now log in."));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "[AUTH ERROR] Reset failed: " + e.getMessage()));
         }
     }
-
 }
