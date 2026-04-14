@@ -66,7 +66,7 @@ public class InvoiceValidationService {
      * @param clientId  The client this invoice belongs to (nullable for legacy uploads)
      * @return ValidationResult with status and failure details
      */
-    public ValidationResult validate(WebhookPayload payload, UUID clientId) {
+    public ValidationResult validate(WebhookPayload payload, UUID clientId, UUID currentInvoiceId) {
         List<String> failures = new ArrayList<>();
         String failureReason = null;
 
@@ -109,11 +109,12 @@ public class InvoiceValidationService {
         if (clientId != null && payload.getSupplierGstin() != null
                 && payload.getInvoiceNumber() != null && payload.getInvoiceDate() != null) {
 
-            boolean isDuplicate = invoiceRepo.existsBySupplierGstinAndInvoiceNumberAndInvoiceDateAndClientId(
+            boolean isDuplicate = invoiceRepo.existsBySupplierGstinAndInvoiceNumberAndInvoiceDateAndClientIdAndIdNot(
                     payload.getSupplierGstin(),
                     payload.getInvoiceNumber(),
                     payload.getInvoiceDate(),
-                    clientId
+                    clientId,
+                    currentInvoiceId
             );
 
             if (isDuplicate) {

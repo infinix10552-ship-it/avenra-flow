@@ -33,8 +33,8 @@ public interface InvoiceRepo extends JpaRepository<Invoice, UUID>, JpaSpecificat
 
     // PRD §3.3: Duplicate detection — invoice identity check within a client
     // Composite key: (supplierGstin + invoiceNumber + invoiceDate + clientId)
-    boolean existsBySupplierGstinAndInvoiceNumberAndInvoiceDateAndClientId(
-            String supplierGstin, String invoiceNumber, LocalDate invoiceDate, UUID clientId);
+    boolean existsBySupplierGstinAndInvoiceNumberAndInvoiceDateAndClientIdAndIdNot(
+            String supplierGstin, String invoiceNumber, LocalDate invoiceDate, UUID clientId, UUID id);
 
     // Aggregation queries for Analytics (Commercial Readiness)
     long countByOrganizationId(UUID organizationId);

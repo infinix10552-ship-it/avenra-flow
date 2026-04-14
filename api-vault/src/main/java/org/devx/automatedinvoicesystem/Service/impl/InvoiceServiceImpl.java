@@ -263,7 +263,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         // 2. Run centralized validation pipeline (PRD §3)
         UUID clientId = invoice.getClient() != null ? invoice.getClient().getId() : null;
-        ValidationResult result = validationService.validate(payload, clientId);
+        ValidationResult result = validationService.validate(payload, clientId, invoice.getId());
 
         // 3. Assign status based on validation result
         switch (result.status()) {
