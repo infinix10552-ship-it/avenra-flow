@@ -268,20 +268,31 @@ def parse_invoice_data(raw_text, client_ledgers=None):
         # ── CURRENCY CONVERSION ENGINE ──────────────────────────────────
         currency = structured_data.get("currency", "INR")
         total_amount = structured_data.get("totalAmount")
+        invoice_date = structured_data.get("invoiceDate")
         
         exchange_rate = 1.0
         converted_amount_inr = total_amount
 
         if currency and currency.upper() != "INR" and total_amount:
-            print(f"[*] Detecting foreign currency: {currency}. Fetching live exchange rates...")
+            # Use historical exchange rate based on invoice date, formatting properly
+            date_param = "latest"
+            if invoice_date:
+                try:
+                    # Validate date format to avoid API 400 errors
+                    datetime.strptime(invoice_date, "%Y-%m-%d")
+                    date_param = invoice_date
+                except ValueError:
+                    date_param = "latest"
+                    
+            print(f"[*] Detecting foreign currency: {currency}. Fetching exchange rates for date: {date_param}...")
             try:
                 # Use Frankfurter API (Open source, no key required)
-                rate_res = requests.get(f"https://api.frankfurter.dev/latest?from={currency.upper()}&to=INR", timeout=10)
+                rate_res = requests.get(f"https://api.frankfurter.dev/{date_param}?from={currency.upper()}&to=INR", timeout=10)
                 if rate_res.status_code == 200:
                     rate_data = rate_res.json()
                     exchange_rate = rate_data['rates']['INR']
                     converted_amount_inr = round(total_amount * exchange_rate, 2)
-                    print(f"[*] Live Conversion: 1 {currency} = {exchange_rate} INR. Converted Total: {converted_amount_inr}")
+                    print(f"[*] Conversion Success: 1 {currency} = {exchange_rate} INR. Converted Total: {converted_amount_inr}")
                 else:
                     print(f"[!] Currency API failed (Status {rate_res.status_code}). Defaulting 1.0")
             except Exception as e:

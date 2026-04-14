@@ -131,8 +131,24 @@ export default function AllInvoices() {
                       <td className="px-6 py-4 text-slate-600">{invoice.ledgerAccountName || "---"}</td>
                       <td className="px-6 py-4 text-slate-600">{invoice.invoiceDate || "---"}</td>
                       <td className="px-6 py-4">{getStatusBadge(invoice.status, invoice.failureReason)}</td>
-                      <td className="px-6 py-4 font-semibold text-right text-slate-900">{invoice.totalAmount ? formatCurrency(invoice.totalAmount) : "---"}</td>
-                  <td className="px-6 py-4 text-center">
+                      {/* Financial Integrity: Native INR Conversion display */}
+                      <td className="px-6 py-4 font-semibold text-slate-900 text-right">
+                        {invoice.convertedAmountInr ? (
+                          <div className="flex flex-col items-end">
+                            <span>{formatCurrency(invoice.convertedAmountInr)}</span>
+                            {invoice.originalCurrency && invoice.originalCurrency !== 'INR' && (
+                              <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+                                {invoice.originalCurrency} {invoice.totalAmount}
+                              </span>
+                            )}
+                          </div>
+                        ) : invoice.totalAmount ? (
+                          formatCurrency(invoice.totalAmount)
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center space-x-2">
                           <button 
                             title="View Data"

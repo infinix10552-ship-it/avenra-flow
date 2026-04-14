@@ -248,8 +248,22 @@ export default function Dashboard() {
                       <td className="px-5 py-3.5 text-slate-600 font-mono text-xs">{invoice.supplierGstin || "—"}</td>
                       <td className="px-5 py-3.5 text-slate-600">{invoice.invoiceDate || "—"}</td>
                       <td className="px-5 py-3.5">{getStatusBadge(invoice.status)}</td>
+                      {/* Financial Integrity: Native INR Conversion display */}
                       <td className="px-5 py-3.5 font-semibold text-slate-900 text-right">
-                        {invoice.totalAmount ? formatCurrency(invoice.totalAmount) : "—"}
+                        {invoice.convertedAmountInr ? (
+                          <div className="flex flex-col items-end">
+                            <span>{formatCurrency(invoice.convertedAmountInr)}</span>
+                            {invoice.originalCurrency && invoice.originalCurrency !== 'INR' && (
+                              <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+                                {invoice.originalCurrency} {invoice.totalAmount}
+                              </span>
+                            )}
+                          </div>
+                        ) : invoice.totalAmount ? (
+                          formatCurrency(invoice.totalAmount)
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-center">
                         {invoice.aiConfidenceScore != null ? (

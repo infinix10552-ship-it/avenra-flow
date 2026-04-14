@@ -230,7 +230,7 @@ export default function InvoiceDetails() {
                 {invoice.originalCurrency && invoice.originalCurrency !== 'INR' && (
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
                     <div className="flex justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      <span>Live INR Conversion</span>
+                      <span>Historical INR Conversion (Invoice Date)</span>
                       <span>Rate: {invoice.exchangeRate}</span>
                     </div>
                     <p className="text-2xl font-bold text-emerald-600">{formatAmount(invoice.convertedAmountInr, 'INR')}</p>
